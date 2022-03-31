@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:16
  * @Description: 
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-03-31 19:46:47
+ * @LastEditTime: 2022-03-31 20:38:14
  * @FilePath: /FDO/CodeCraft-2022/src/data.h
  */
 #ifndef _DATA_
@@ -21,10 +21,12 @@ struct Data
     unordered_map<string, int> re_edge_site;
     unordered_map<string, int> re_stream_type;
 
-    int qos_constraint;
-    int base_cost;
+    int qos_constraint;             // qos阀值
+    int base_cost;                  // base_cost(暂时无用)
+    // [m_time][customer_site][index] = <bandwidth, stream_type>
     vector<vector<vector<pair<int, int>>>> demand;
-    vector<int> site_bandwith;
+    vector<int> site_bandwidth;
+    // [customer_site][edge_site] = qos
     vector<vector<int>> qos;
 };
 Data read_file();
