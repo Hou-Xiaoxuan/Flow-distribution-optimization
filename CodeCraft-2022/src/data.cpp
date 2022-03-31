@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description: 
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-03-31 20:41:25
+ * @LastEditTime: 2022-03-31 21:31:02
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -100,7 +100,6 @@ Data read_file()
     }
     file.close();
 
-
     /*读取qos.csv*/
     file.open(INPUT + "qos.csv");
     // 预处理映射
@@ -125,6 +124,33 @@ Data read_file()
 
     file.close();
 
-
     return data;
+}
+
+/*按照规定格式输出一个分配好的distribution*/
+void output_distribution(const Data &data, const Distribution &distribution)
+{
+    ofstream fout(OUTPUT + "solution.txt");
+    // 遍历时刻
+    for (const auto &distribution_t : distribution)
+    {
+        // 遍历customer_site
+        for (size_t i = 0; i < distribution_t.size(); i++)
+        {
+            fout << data.customer_site[i] << ":";
+            for (size_t j = 0; j < distribution_t[i].size(); j++)
+            {
+                int edge_site = distribution_t[i][j].first;
+                int stream_type = distribution_t[i][j].second;
+                if (j == 0) {
+                    fout << "<" + data.edge_site[i] + "," + data.stream_type[stream_type] + ">";
+                }
+                else {
+                    fout << ",<" + data.edge_site[i] + "," + data.stream_type[stream_type] + ">";
+                }
+            }
+            fout << "\n";
+        }
+    }
+    fout.close();
 }

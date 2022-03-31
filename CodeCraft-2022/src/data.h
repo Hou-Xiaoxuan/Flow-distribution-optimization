@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:16
  * @Description: 
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-03-31 20:38:14
+ * @LastEditTime: 2022-03-31 21:22:31
  * @FilePath: /FDO/CodeCraft-2022/src/data.h
  */
 #ifndef _DATA_
@@ -11,6 +11,9 @@
 #include<bits/stdc++.h>
 #include "config.h"
 using namespace std;
+
+/*Distribution类型 [mtime][customer][...] = <edge_site, stream_type>*/
+using Distribution = vector<vector<vector<pair<int, int>>>>;
 struct Data
 {
     /* Data */
@@ -30,6 +33,6 @@ struct Data
     vector<vector<int>> qos;
 };
 Data read_file();
-
+void output_distribution(const Data &data, const Distribution &distribution);
 vector<string> get_split_line(ifstream &file, char delim);
 #endif
