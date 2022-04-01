@@ -5,17 +5,17 @@
  */
 #include "config.h"
 #include "data.h"
-#include "knapsack.cpp"
+#include "ffd.cpp"
 #include <iostream>
 int main() {
     std::cout << INPUT << std::endl;
     Data data = read_file();
+
     // 实现功能
-    Knapsack knapsack(data);
-    Distribution distribution = knapsack.excute();
+    FFD ffd(data);
+    Distribution distribution = ffd.excute();
 
     output_distribution(data, distribution);
-
     std::cout << "over" << std::endl;
     return 0;
 }
