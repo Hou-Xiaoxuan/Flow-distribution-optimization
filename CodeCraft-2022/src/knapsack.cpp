@@ -23,7 +23,6 @@ public:
         // 将同一个时刻的流量重整为一个一维数组
         //[m_time][...] <<stream>, <stream_type, customer_site>>
         vector<vector<pair<int, pair<int, int>>>> demand(data.demand.size());
-
         for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
             const auto &ori_demand_now_time = data.demand[m_time];
             auto &demand_now_time = demand[m_time];
@@ -39,8 +38,10 @@ public:
         }
 
         for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
+            debug << "m_time : " << m_time << endl;
             auto &ans_now_time = ans[m_time];
             for (size_t edge_site = 0; edge_site < data.site_bandwidth.size(); ++edge_site) {
+                debug << "edge_site : " << edge_site << endl;
                 // TODO: 可能缺少一些停止条件
 
                 auto demand_now_time = demand[m_time];
@@ -51,10 +52,10 @@ public:
                 int edge_bandwidth = data.site_bandwidth[edge_site];
                 // 求所有流的最大公因数, 最大公因数 减小复杂度
                 int d = edge_bandwidth;
-                for (size_t stream_index = 0; stream_index < demand_now_time.size(); ++stream_index) {
+                for (size_t stream_index = 1; stream_index < demand_now_time.size(); ++stream_index) {
                     d = __gcd(d, demand_now_time[stream_index].first);
                 }
-                for (size_t stream_index = 0; stream_index < demand_now_time.size(); ++stream_index) {
+                for (size_t stream_index = 1; stream_index < demand_now_time.size(); ++stream_index) {
                     demand_now_time[stream_index].first /= d;
                 }
                 edge_bandwidth /= d;
@@ -65,19 +66,20 @@ public:
                 for (size_t i = 0 /*无偏移*/; i <= demand_now_time.size(); ++i) {
                     dp[i][0] = true;
                 }
-                for (size_t i = 1; i <= demand_now_time.size(); ++i) {
-                    for (int j = 0; j <= edge_bandwidth; ++j) {
-                        if (j < demand_now_time[i].first) {
-                            dp[i][j] = dp[i - 1][j];
-                        } else {
-                            dp[i][j] = dp[i - 1][j] || dp[i - 1][j - demand_now_time[i].first];
+                for (size_t i = 1; i < demand_now_time.size(); ++i) {
+                    if (data.qos[demand_now_time[i].second.second][edge_site] < data.qos_constraint) // qos 限制
+                        for (int j = 0; j < edge_bandwidth; ++j) {
+                            if (j < demand_now_time[i].first) {
+                                dp[i][j] = dp[i - 1][j];
+                            } else {
+                                dp[i][j] = dp[i - 1][j] || dp[i - 1][j - demand_now_time[i].first];
+                            }
                         }
-                    }
                 }
 
                 // 找到最大的一个能填充的体积
                 int max_bandwidth = -1;
-                for (size_t i = demand_now_time.size(), j = edge_bandwidth; j >= 0; --j) {
+                for (size_t i = demand_now_time.size() - 1, j = edge_bandwidth; j >= 0; --j) {
                     if (dp[i][j] == true) {
                         max_bandwidth = j;
                         break;
@@ -85,7 +87,7 @@ public:
                 }
 
                 // 获得这个背包内的答案
-                for (size_t j = max_bandwidth, i = demand_now_time.size(); i >= 1 && j > 0; --i) {
+                for (size_t j = max_bandwidth, i = demand_now_time.size() - 1; i >= 1 && j > 0; --i) {
                     if (dp[i - 1][j - demand_now_time[i].first] == true) {
                         ans_now_time[edge_site].push_back(demand_now_time[i]);
                         j -= demand_now_time[i].first;
@@ -107,7 +109,7 @@ public:
         Distribution distribution(data.demand.size(), vector<vector<pair<int, int>>>(data.site_bandwidth.size()));
         for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
             for (size_t edge_site = 0; edge_site < data.site_bandwidth.size(); ++edge_site) {
-                for (int stream_index = 0; stream_index < ans[m_time][edge_site].size(); ++stream_index) {
+                for (size_t stream_index = 0; stream_index < ans[m_time][edge_site].size(); ++stream_index) {
                     const auto &stream = ans[m_time][edge_site][stream_index];
                     int customer_site = stream.second.second;
                     int stream_type = stream.second.first;
