@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description: 
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-03-31 21:31:02
+ * @LastEditTime: 2022-04-01 14:26:40
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -143,10 +143,10 @@ void output_distribution(const Data &data, const Distribution &distribution)
                 int edge_site = distribution_t[i][j].first;
                 int stream_type = distribution_t[i][j].second;
                 if (j == 0) {
-                    fout << "<" + data.edge_site[i] + "," + data.stream_type[stream_type] + ">";
+                    fout << "<" + data.edge_site[edge_site] + "," + data.stream_type[stream_type] + ">";
                 }
                 else {
-                    fout << ",<" + data.edge_site[i] + "," + data.stream_type[stream_type] + ">";
+                    fout << ",<" + data.edge_site[edge_site] + "," + data.stream_type[stream_type] + ">";
                 }
             }
             fout << "\n";
