@@ -2,8 +2,8 @@
  * @Author: LinXuan
  * @Date: 2022-04-01 14:06:08
  * @Description:
- * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-01 20:22:06
+ * @LastEditors: LinXuan
+ * @LastEditTime: 2022-04-01 21:08:20
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.h
  */
 #ifndef _HUNGARIAN_
@@ -55,7 +55,7 @@ private:
     /* 在m_time上执行匹配 */
     void excute_match_per_mtime(size_t mtime) {
         // 摊平图,并排序
-        this->stream_node.clear();
+        vector<Stream>().swap(this->stream_node);   // 清空
         this->stream_node.reserve(data.get_customer_num() * 100);
         const auto &demant_t = data.demand[mtime];
         for (size_t i = 0; i < demant_t.size(); i++) {
@@ -65,6 +65,7 @@ private:
                 }
             }
         }
+        this->stream_node.shrink_to_fit();
         sort(this->stream_node.begin(), this->stream_node.end(), greater<Stream>());
 
         // 初始化
@@ -75,17 +76,26 @@ private:
         // 执行增广路过程
         int match_num = 0;
         for (size_t i = 0; i < this->stream_node.size(); i++) {
-            if (find_path(i)) {
+            if (this->find_path(i)) {
                 match_num++;
             }
-#ifdef _DEBUG
-            else {
-                throw "分配方案不合法，没有全部分配";
-            }
-#endif
+// #ifdef _DEBUG
+//             else {
+//                 throw "分配方案不合法，没有全部分配";
+//             }
+// #endif
         }
 
-        // TODO: 更新匹配进入distrubution
+        // 写入distribution
+        this->distribution[mtime].assign(data.get_customer_num(), vector<pair<int, int>>());
+        Distribution_t &distribution_t = this->distribution[mtime];
+        for(size_t edge_site=0; edge_site<data.get_edge_num(); edge_site++)
+        {
+            for(int i:this->matched_per_edge[edge_site]){
+                Stream stream = this->stream_node[i];
+                distribution_t[stream.customer_site].push_back({edge_site, stream.stream_type});
+            }
+        }
     }
 
     /* 寻找增广路 */
@@ -94,7 +104,7 @@ private:
         Stream stream = this->stream_node[u];
         // 有剩余容量: 直接加入匹配，返回
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); edge_site++) {
-            if (this->is_connect(stream.customer_site, edge_site) /*and vis[edge_site]==false*/) {
+            if (this->is_connect(stream.customer_site, edge_site) and vis[edge_site]==false) {
                 if (this->residual_capacity[edge_site] >= stream.flow) {
                     this->matched_per_edge[edge_site].push_back(u);
                     this->residual_capacity[edge_site] -= stream.flow;
@@ -104,32 +114,32 @@ private:
         }
         // 没有剩余容量: 以匹配的流量中，能腾出空间的，重新匹配
         // 再此过程中，需要标记不要重复访问边缘节点
-        // for(size_t edge_site=0; edge_site<data.get_edge_num(); edge_site++)
-        // {
-        //     if(this->is_connect(stream.customer_site, edge_site) and vis[edge_site]==false)
-        //     {
-        //         vis[edge_site] = true;
-        //         auto &matcharray = this->matched_per_edge[edge_site];
-        //         // 到着遍历
-        //         for(auto ite=matcharray.begin(); ite!=matcharray.end(); ite++)
-        //         {
-        //             // 尝试回退一个可以腾出足够空间其他节点
-        //             if(this->stream_node[*ite].flow + this->residual_capacity[edge_site] >= stream.flow)
-        //             {
-        //                 if(find_path(*ite) == true) {
-        //                     // 回退成功
-        //                     this->residual_capacity[edge_site] += this->stream_node[*ite].flow;
-        //                     this->residual_capacity[edge_site] -= stream.flow;
-        //                     matcharray.erase(ite);
-        //                     matcharray.push_back(u);
-        //                     vis[edge_site] = false; // 回退标记数组
-        //                     return true;
-        //                 }
-        //             }
-        //         }
-        //         vis[edge_site] = false; // 回退标记
-        //     }
-        // }
+        for(size_t edge_site=0; edge_site<data.get_edge_num(); edge_site++)
+        {
+            if(this->is_connect(stream.customer_site, edge_site) and vis[edge_site]==false)
+            {
+                vis[edge_site] = true;
+                auto &matcharray = this->matched_per_edge[edge_site];
+                // 到着遍历
+                for(auto ite=matcharray.begin(); ite!=matcharray.end(); ite++)
+                {
+                    // 尝试回退一个可以腾出足够空间其他节点
+                    if(this->stream_node[*ite].flow + this->residual_capacity[edge_site] >= stream.flow)
+                    {
+                        if(find_path(*ite) == true) {
+                            // 回退成功
+                            this->residual_capacity[edge_site] += this->stream_node[*ite].flow;
+                            this->residual_capacity[edge_site] -= stream.flow;
+                            matcharray.erase(ite);
+                            matcharray.push_back(u);
+                            vis[edge_site] = false; // 回退标记数组
+                            return true;
+                        }
+                    }
+                }
+                vis[edge_site] = false; // 回退标记
+            }
+        }
         return false;
     }
 
@@ -140,7 +150,7 @@ public:
     Distribution excute() {
         for (size_t i = 0; i < data.get_mtime_num(); i++) {
             this->excute_match_per_mtime(i);
-            cout << "excute match in mtime :" << i << endl;
+            debug << "excute match in mtime :" << i << endl;
         }
 
         return this->distribution;
