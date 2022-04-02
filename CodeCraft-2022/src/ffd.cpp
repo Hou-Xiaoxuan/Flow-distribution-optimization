@@ -17,8 +17,7 @@ class FFD {
     long long best_cost = LONG_LONG_MAX;
 
 public:
-    Distribution excute() {
-
+    void init() {
         // 将同一个时刻的流量重整为一个一维数组
         //[m_time][...] <<stream>, <stream_type, customer_site>>
         vector<vector<pair<int, pair<int, int>>>> demand(data.demand.size());
@@ -46,11 +45,11 @@ public:
 
         int v = max(1024, data.base_cost);
         int max_bandwidth = *max_element(data.site_bandwidth.begin(), data.site_bandwidth.end());
+        // TODO :  加上退火优化
         while (true) {
             cout << "-----------" << v << "---------------" << endl;
             vector<vector<vector<pair<int, pair<int, int>>>>> ans(
                 data.demand.size(), vector<vector<pair<int, pair<int, int>>>>(data.site_bandwidth.size()));
-
             bool is_v_cover = true;
             for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
                 vector<int> edge_cap = data.site_bandwidth;
@@ -107,8 +106,11 @@ public:
             if (v >= max_bandwidth) {
                 break;
             }
-            v *= 2;
+            v *= 1.4;
         }
+    }
+    Distribution excute() {
+        init();
         return best_distribution;
     }
     FFD(Data data) : data(data) {
