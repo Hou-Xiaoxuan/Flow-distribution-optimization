@@ -44,25 +44,25 @@ public:
             edge_order.push_back(edge_site);
         }
 
-        int v = max(18888, data.base_cost);
+        int v = max(1024, data.base_cost);
         int max_bandwidth = *max_element(data.site_bandwidth.begin(), data.site_bandwidth.end());
         while (true) {
             cout << "-----------" << v << "---------------" << endl;
             vector<vector<vector<pair<int, pair<int, int>>>>> ans(
                 data.demand.size(), vector<vector<pair<int, pair<int, int>>>>(data.site_bandwidth.size()));
-            vector<int> edge_cap = data.site_bandwidth;
-            for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
-                edge_cap[edge_site] = min(v, edge_cap[edge_site]);
-            }
 
             bool is_v_cover = true;
             for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
+                vector<int> edge_cap = data.site_bandwidth;
+                for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
+                    edge_cap[edge_site] = min(v, edge_cap[edge_site]);
+                }
                 for (size_t stream_index = 0; stream_index < demand[m_time].size(); ++stream_index) {
                     bool flag = false;
                     const auto &stream = demand[m_time][stream_index];
-                    debug << m_time << "  output index=" << stream_index << " flow=" << stream.first << " " << endl;
                     for (const auto &edge_site : edge_order) {
                         if (edge_cap[edge_site] >= stream.first) {
+
                             if (data.qos[stream.second.second][edge_site] < data.qos_constraint) { // qos 限制
                                 ans[m_time][edge_site].push_back(stream);
                                 edge_cap[edge_site] -= stream.first;
@@ -99,9 +99,9 @@ public:
                 }
                 int cost = cal_cost(data, distribution);
                 if (cost < best_cost) {
-                    cout << best_cost << endl;
                     best_cost = cost;
                     best_distribution = distribution;
+                    cout << best_cost << endl;
                 }
             }
             if (v >= max_bandwidth) {
