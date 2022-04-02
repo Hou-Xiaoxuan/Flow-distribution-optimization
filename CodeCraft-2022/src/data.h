@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:16
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-02 10:06:28
+ * @LastEditTime: 2022-04-02 10:55:19
  * @FilePath: /FDO/CodeCraft-2022/src/data.h
  */
 #ifndef _DATA_
@@ -30,17 +30,17 @@ struct Data {
     vector<int> site_bandwidth;
     // [customer_site][edge_site] = qos
     vector<vector<int>> qos;
-    int get_m_time_num() {
+    const int get_m_time_num() const {
         return demand.size();
     }
-    int get_customer_site_num() {
+    const int get_customer_site_num() const {
         return customer_site.size();
     }
-    int get_edge_site_num() {
+    const int get_edge_site_num() const {
         return edge_site.size();
     }
     // 花费从小到大排序后, 下标0开始的开始, 计费的时刻的下标
-    int get_95_index() {
+    const int get_95_index() const {
         return (get_m_time_num() * 19 - 1) / 20;
     }
 };
