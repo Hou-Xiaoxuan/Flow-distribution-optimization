@@ -37,21 +37,15 @@ public:
             }
             demand_now_time.shrink_to_fit();
         }
-
         for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
-            sort(demand[m_time].begin(), demand[m_time].end(), greater<pair<int, pair<int, int>>>());
-
-                vector<int>
-                    edge_order; // 决定每轮遍历的顺序
+            vector<int> edge_order; // 决定每轮遍历的顺序
             edge_order.reserve(data.edge_site.size());
-            for (size_t edge_site = m_time % data.edge_site.size(); edge_site < data.edge_site.size(); ++edge_site) {
+            for (int edge_site = 0; edge_site < data.get_edge_site_num(); ++edge_site) {
                 edge_order.push_back(edge_site);
             }
-            for (size_t edge_site = 0; edge_site < m_time % data.edge_site.size(); ++edge_site) {
-                edge_order.push_back(edge_site);
-            }
-            vector<int> edge_cap = data.site_bandwidth;
 
+            sort(demand[m_time].begin(), demand[m_time].end(), greater<pair<int, pair<int, int>>>());
+            vector<int> edge_cap = data.site_bandwidth;
             bool flag;
             for (size_t stream_index = 0; stream_index < demand[m_time].size(); ++stream_index) {
                 flag = false;
