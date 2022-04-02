@@ -60,6 +60,7 @@ public:
                 for (size_t stream_index = 0; stream_index < demand[m_time].size(); ++stream_index) {
                     bool flag = false;
                     const auto &stream = demand[m_time][stream_index];
+                    debug << m_time << "  output index=" << stream_index << " flow=" << stream.first << " " << endl;
                     for (const auto &edge_site : edge_order) {
                         if (edge_cap[edge_site] >= stream.first) {
                             if (data.qos[stream.second.second][edge_site] < data.qos_constraint) { // qos 限制
