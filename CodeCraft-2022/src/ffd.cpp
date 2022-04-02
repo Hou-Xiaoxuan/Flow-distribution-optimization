@@ -8,14 +8,22 @@
 #define __FFD__
 #include "config.h"
 #include "data.h"
+#include "que95.h"
 #include <bits/stdc++.h>
 
 using namespace std;
 class FFD {
     const Data data;
+    vector<Que95> que95;
+    Distribution best_distribution;
+    int best_cost;
 
 public:
     Distribution excute() {
+        init();
+        return best_distribution;
+    }
+    void init() {
         // [m_time][edge_site][...] <stream, <stream_type, customer_site>>
         vector<vector<vector<pair<int, pair<int, int>>>>> ans(
             data.demand.size(), vector<vector<pair<int, pair<int, int>>>>(data.site_bandwidth.size()));
@@ -65,22 +73,32 @@ public:
                 }
             }
         }
+        // [edge_site][m_time] = total_stream_per_time
+        vector<vector<int>> edge_stream(data.get_edge_site_num(), vector<int>(data.get_m_time_num(), 0));
         // [m_time][edge_site][...] <steam, <stream_type, customer_site>>
         // vector<vector<vector<pair<int, pair<int, int>>>>> ans;
         // 将答案整合进distribution中
         // [mtime][customer][...] = <edge_site, stream_type>
-        Distribution distribution(data.demand.size(), vector<vector<pair<int, int>>>(data.customer_site.size()));
+        best_distribution = Distribution(data.demand.size(), vector<vector<pair<int, int>>>(data.customer_site.size()));
         for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
             for (size_t edge_site = 0; edge_site < data.site_bandwidth.size(); ++edge_site) {
                 for (size_t stream_index = 0; stream_index < ans[m_time][edge_site].size(); ++stream_index) {
                     const auto &stream = ans[m_time][edge_site][stream_index];
                     int customer_site = stream.second.second;
                     int stream_type = stream.second.first;
-                    distribution[m_time][customer_site].push_back({edge_site, stream_type});
+                    best_distribution[m_time][customer_site].push_back({edge_site, stream_type});
+                    edge_stream[edge_site][m_time] += stream.first;
                 }
             }
         }
-        return distribution;
+        que95 = vector<Que95>(data.get_edge_site_num());
+        for (int edge_site = 0; edge_site < data.get_edge_site_num(); ++edge_site) {
+            que95[edge_site].init(edge_stream[edge_site]);
+        }
+        return;
+    }
+    void get_cost() {
+        
     }
     FFD(Data data) : data(data) {
     }
