@@ -5,7 +5,6 @@
  */
 #include "config.h"
 #include "data.h"
-#include "ffd.cpp"
 #include <iostream>
 int main() {
     std::cout << INPUT << std::endl;
