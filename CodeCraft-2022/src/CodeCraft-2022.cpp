@@ -16,5 +16,6 @@ int main() {
     Distribution distribution = solve.excute();
     output_distribution(data, distribution);
 
+    std::cout<<"over"<<endl;
     return 0;
 }
