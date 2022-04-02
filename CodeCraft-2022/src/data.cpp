@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-01 18:41:40
+ * @LastEditTime: 2022-04-02 19:06:45
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -95,6 +95,18 @@ Data read_file() {
         data.re_edge_site[split_line[0]] = data.edge_site.size() - 1;
     }
     file.close();
+
+    // 对site_bandwidth按照带宽从大到小排序
+    vector<pair<int, string>> tmp(data.site_bandwidth.size());
+    for (size_t i = 0; i < data.site_bandwidth.size(); ++i) {
+        tmp[i] = {data.site_bandwidth[i], data.edge_site[i]};
+    }
+    sort(tmp.begin(), tmp.end(), greater<pair<int, string>>());
+    for (size_t i = 0; i < data.site_bandwidth.size(); ++i) {
+        data.site_bandwidth[i] = tmp[i].first;
+        data.edge_site[i] = tmp[i].second;
+        data.re_edge_site[tmp[i].second] = i;
+    }
 
     /*读取qos.csv*/
     file.open(INPUT + "qos.csv");
