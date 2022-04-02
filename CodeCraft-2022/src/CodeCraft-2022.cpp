@@ -14,8 +14,8 @@ int main() {
     // 实现功能
     FFD ffd(data);
     Distribution distribution = ffd.excute();
-
     output_distribution(data, distribution);
+    debug << cal_cost(data, distribution) << endl;
     std::cout << "over" << std::endl;
     return 0;
 }

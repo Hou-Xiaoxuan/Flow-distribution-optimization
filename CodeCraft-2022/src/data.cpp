@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-02 20:05:16
+ * @LastEditTime: 2022-04-02 20:32:52
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -179,6 +179,9 @@ int cal_cost(const Data &data, const Distribution &distribution) {
     size_t index_95 = (demand_sequence[0].size() * 19 - 1) / 20;
     for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
         auto &sequence = demand_sequence[edge_site];
+        if (sequence.empty() == true) {
+            continue;
+        }
         sort(sequence.begin(), sequence.end());
         if (*sequence.rbegin() == 0) {
             cost += 0;
