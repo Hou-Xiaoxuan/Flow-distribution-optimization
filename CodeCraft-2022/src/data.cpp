@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-02 19:06:45
+ * @LastEditTime: 2022-04-02 20:05:16
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -64,6 +64,7 @@ Data read_file() {
             m_time = re_mtime_index.size();
             re_mtime_index[smtime] = m_time;
             data.demand.push_back(vector<vector<pair<int, int>>>(data.customer_site.size()));
+            data.stream_type_to_flow.push_back(vector<unordered_map<int, int>>(data.customer_site.size()));
         }
 
         string sstream_type = split_line[1];
@@ -78,7 +79,9 @@ Data read_file() {
         }
 
         for (size_t i = 2; i < split_line.size(); i++) {
-            data.demand[m_time][i - 2].push_back(make_pair(stoi(split_line[i]), stream_type));
+            int flow = stoi(split_line[i]);
+            data.stream_type_to_flow[m_time][i - 2][stream_type] = flow;
+            data.demand[m_time][i - 2].push_back(make_pair(flow, stream_type));
         }
     }
     file.close();
@@ -157,4 +160,35 @@ void output_distribution(const Data &data, const Distribution &distribution) {
         }
     }
     fout.close();
+}
+
+int cal_cost(const Data &data, const Distribution &distribution) {
+    double cost = 0.0;
+    // 每个边缘节点的需求序列 [mtime][customer][...] = <edge_site, stream_type>
+    vector<vector<int>> demand_sequence(data.edge_site.size(), vector<int>(distribution.size()));
+    for (size_t m_time = 0; m_time < distribution.size(); m_time++) {
+        for (size_t customer_site = 0; customer_site < distribution[m_time].size(); ++customer_site) {
+            for (auto item : distribution[m_time][customer_site]) {
+                int stream_type = item.second;
+                int edge_site = item.first;
+                demand_sequence[edge_site][m_time] += data.stream_type_to_flow[m_time][customer_site].at(stream_type);
+            }
+        }
+    }
+    // 95%向上取整 <=> (n*19 - 1)/20 + 1, 从0计数再减1
+    size_t index_95 = (demand_sequence[0].size() * 19 - 1) / 20;
+    for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
+        auto &sequence = demand_sequence[edge_site];
+        sort(sequence.begin(), sequence.end());
+        if (*sequence.rbegin() == 0) {
+            cost += 0;
+        } else if (sequence[index_95] <= data.base_cost) {
+            cost += data.base_cost;
+        } else {
+            cost += (1.0 * (sequence[index_95] - data.base_cost) * (sequence[index_95] - data.base_cost)) /
+                        data.site_bandwidth[edge_site] +
+                    sequence[index_95];
+        }
+    }
+    return (int)(cost + 0.5);
 }
