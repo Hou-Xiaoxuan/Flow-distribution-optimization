@@ -15,6 +15,9 @@ int main() {
     FFD ffd(data);
     Distribution distribution = ffd.excute();
     output_distribution(data, distribution);
+#ifdef _DEBUG
+    check_distribution(data, distribution);
+#endif
     debug << cal_cost(data, distribution) << endl;
     std::cout << "over" << std::endl;
     return 0;

@@ -15,8 +15,7 @@ using namespace std;
 /*Distribution类型 [mtime][customer][...] = <edge_site, stream_type>*/
 using Distribution = vector<vector<vector<pair<int, int>>>>;
 using Distribution_t = vector<vector<pair<int, int>>>;
-struct Data
-{
+struct Data {
     /* Data */
     vector<string> customer_site; // 客户节点
     vector<string> edge_site;     // 边缘节点
@@ -36,13 +35,13 @@ struct Data
     vector<vector<int>> qos;
 
     // 一些工具函数
-    inline size_t get_customer_num() const{
+    inline size_t get_customer_num() const {
         return this->customer_site.size();
     }
-    inline size_t get_edge_num() const{
+    inline size_t get_edge_num() const {
         return this->edge_site.size();
     }
-    inline size_t get_mtime_num() const{
+    inline size_t get_mtime_num() const {
         return this->demand.size();
     }
 };
@@ -50,4 +49,5 @@ Data read_file();
 void output_distribution(const Data &data, const Distribution &distribution);
 vector<string> get_split_line(ifstream &file, char delim);
 int cal_cost(const Data &data, const Distribution &distribution);
+bool check_distribution(const Data &data, const Distribution &Distribution);
 #endif
