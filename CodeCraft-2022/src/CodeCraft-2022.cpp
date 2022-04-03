@@ -8,16 +8,20 @@
 #include "ffd.cpp"
 #include <iostream>
 int main() {
+    srand((unsigned int)time(NULL));
+
     std::cout << INPUT << std::endl;
     Data data = read_file();
 
     // 实现功能
     FFD ffd(data);
     Distribution distribution = ffd.excute();
-    output_distribution(data, distribution);
+
 #ifdef _DEBUG
     check_distribution(data, distribution);
 #endif
+
+    output_distribution(data, distribution);
     std::cout << "over" << std::endl;
     return 0;
 }

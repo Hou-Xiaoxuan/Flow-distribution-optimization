@@ -3,7 +3,7 @@
  * @Date: 2022-03-25 12:36:25
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-03 16:21:06
+ * @LastEditTime: 2022-04-03 21:20:40
  * @FilePath: /FDO/CodeCraft-2022/src/weight_segment_tree.h
  */
 #include <iostream>
@@ -49,6 +49,6 @@ public:
         _update(root + 1, left + 1, right + 1, num + 1, v);
     }
     inline int queryK(int root, int left, int right, int num) {
-        return _queryK(root + 1, left + 1, right + 1, num);
+        return _queryK(root + 1, left + 1, right + 1, num) - 1;
     }
 };
