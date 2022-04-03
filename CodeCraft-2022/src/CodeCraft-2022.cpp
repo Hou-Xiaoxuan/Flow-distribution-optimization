@@ -8,8 +8,6 @@
 #include "ffd.cpp"
 #include <iostream>
 int main() {
-    srand((unsigned int)time(NULL));
-
     std::cout << INPUT << std::endl;
     Data data = read_file();
 
