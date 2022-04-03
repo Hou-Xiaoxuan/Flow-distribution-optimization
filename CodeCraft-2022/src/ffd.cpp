@@ -112,6 +112,7 @@ public:
             v *= 1.4;
         }
     }
+
     void greedy() {
         bool is_success = true;
 
@@ -138,20 +139,14 @@ public:
             sort(demand_now_time.begin(), demand_now_time.end(), greater<pair<int, pair<int, int>>>());
         }
 
-        vector<int> edge_order; // 决定每轮遍历的顺序
-        edge_order.reserve(data.edge_site.size());
-        for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
-            edge_order.push_back(edge_site);
-        }
-
         vector<WeightSegmentTree> tree(data.get_edge_num());
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
             tree[edge_site] = WeightSegmentTree(data.site_bandwidth[edge_site]);
             tree[edge_site].update(0, 0, data.site_bandwidth[edge_site], 0, data.get_mtime_num());
         }
 
-        // 从1开始计数的下标
-        int order_95 = (data.get_mtime_num() * 19 - 1) / 20 + 1;
+        // 从1开始计数的下标值
+        int index_95 = (data.get_mtime_num() * 19 - 1) / 20 + 1;
 
         vector<int> edge_stream_95(data.get_edge_num(), 0);
         vector<int> edge_stream_96(data.get_edge_num(), 0);
@@ -202,10 +197,12 @@ public:
                         break;
                     }
                 }
+
                 if (cost_per_edge_site.empty() == true) {
                     is_success = false;
                     break;
                 }
+
                 sort(cost_per_edge_site.begin(), cost_per_edge_site.end());
                 // TODO :如果是空判一下失败
                 int add_cost = cost_per_edge_site.front().first;
@@ -213,18 +210,20 @@ public:
                 int old_flow = edge_site_total_stream_per_time[m_time][edge_site];
                 tree[edge_site].update(0, 0, data.site_bandwidth[edge_site], old_flow, -1);
                 int new_flow = old_flow + flow;
+                edge_cap[edge_site] -= flow;
                 tree[edge_site].update(0, 0, data.site_bandwidth[edge_site], new_flow, 1);
+
                 if (new_flow > edge_stream_95[edge_site] && new_flow <= edge_stream_96[edge_site]) {
                     edge_stream_95[edge_site] = new_flow;
                 } else if (new_flow > edge_stream_96[edge_site]) {
                     edge_stream_95[edge_site] = edge_stream_96[edge_site];
                     edge_stream_96[edge_site] =
-                        tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], order_95 + 1);
+                        tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_95 + 1);
                 }
+
                 edge_site_total_stream_per_time[m_time][edge_site] = new_flow;
                 pre_edge_site_cost[edge_site] += add_cost;
                 ans[m_time][edge_site].push_back(stream);
-                edge_cap[edge_site] -= flow;
             }
         }
         // [m_time][edge_site][...] <steam, <stream_type, customer_site>>
@@ -250,10 +249,15 @@ public:
                 cout << best_cost << endl;
             }
         }
+        double cost = 0;
+        for (size_t edge_site = 0; edge_site < pre_edge_site_cost.size(); ++edge_site) {
+            cost += pre_edge_site_cost[edge_site];
+        }
+        debug << (int)(cost + 0.5) << endl;
     }
 
     Distribution excute() {
-        init();
+        // init();
         greedy();
         return best_distribution;
     }
