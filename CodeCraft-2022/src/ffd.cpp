@@ -237,7 +237,7 @@ public:
                 if (exploit_edge_site == -1) {
                     break;
                 }
-                
+
                 ++exploit_count[exploit_edge_site];
                 exploit_edge_site_per_time[m_time].insert(exploit_edge_site);
 
@@ -259,7 +259,7 @@ public:
             }
         }
 
-        for (size_t m_time = 0; m_time < data.get_edge_num(); ++m_time) {
+        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
             // 调整cap
             auto &edge_cap = edge_site_cap_per_time[m_time];
             for (const auto &edge_site : valid_edge_site) {
@@ -291,7 +291,8 @@ public:
         }
 
         bool is_success = true;
-        for (size_t m_time = 0; m_time < data.get_edge_num() && is_success; ++m_time) {
+        for (size_t m_time = 0; m_time < data.get_mtime_num() && is_success; ++m_time) {
+            // debug << "m_time : " << m_time << endl;
             // 调整cap
             auto &edge_cap = edge_site_cap_per_time[m_time];
             for (const auto &edge_site : valid_edge_site) {
@@ -303,6 +304,7 @@ public:
             }
 
             for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
+                // debug << "stream : " << stream_index << " ";
                 if (vis_stream_per_time[m_time][stream_index] == true) {
                     continue;
                 }
@@ -324,6 +326,7 @@ public:
                     break;
                 }
             }
+            // debug << endl;
         }
 
         if (is_success == true) {
