@@ -8,6 +8,7 @@
 #define __FFD__
 #include "config.h"
 #include "data.h"
+#include "weight_segment_tree.h"
 #include <bits/stdc++.h>
 
 using namespace std;
@@ -111,14 +112,16 @@ public:
             v *= 1.4;
         }
     }
-    void optimize() {
+    void greedy() {
+        bool is_success = true;
+
         // [m_time][edge_site][...] <steam, <stream_type, customer_site>>
         vector<vector<vector<pair<int, pair<int, int>>>>> ans(
             data.demand.size(), vector<vector<pair<int, pair<int, int>>>>(data.site_bandwidth.size()));
 
+        // 将同一个时刻的流量重整为一个一维数组
         //[m_time][...] <<stream>, <stream_type, customer_site>>
         vector<vector<pair<int, pair<int, int>>>> stream_per_time(data.demand.size());
-        vector<vector<bool>> vis_stream_per_time(data.get_mtime_num());
         for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
             const auto &ori_demand_now_time = data.demand[m_time];
             auto &demand_now_time = stream_per_time[m_time];
@@ -133,202 +136,100 @@ public:
             }
             demand_now_time.shrink_to_fit();
             sort(demand_now_time.begin(), demand_now_time.end(), greater<pair<int, pair<int, int>>>());
-            vis_stream_per_time[m_time] = vector<bool>(demand_now_time.size(), false);
         }
 
-        // 遍历best_distribution 确定使用哪些edge_site
-        vector<bool> vis_edge_site(data.get_edge_num(), false);
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
-                for (const auto &stream : best_distribution[m_time][customer_site]) {
-                    int edge_site = stream.first;
-                    vis_edge_site[edge_site] = true;
-                }
-            }
+        vector<int> edge_order; // 决定每轮遍历的顺序
+        edge_order.reserve(data.edge_site.size());
+        for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
+            edge_order.push_back(edge_site);
         }
-        vector<int> valid_edge_site;
-        valid_edge_site.reserve(data.get_edge_num());
+
+        vector<WeightSegmentTree> tree(data.get_edge_num());
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-            if (vis_edge_site[edge_site] == true) {
-                valid_edge_site.push_back(edge_site);
-            }
-        }
-        valid_edge_site.shrink_to_fit();
-
-        vector<pair<int, int>> total_stream_per_time(data.get_mtime_num());
-        long long total_stream = 0;
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            total_stream_per_time[m_time].second = m_time;
-            for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
-                const auto &stream = stream_per_time[m_time][stream_index];
-                int stream_flow = stream.first;
-                total_stream_per_time[m_time].first += stream_flow;
-                total_stream += stream_flow;
-            }
-        }
-        sort(total_stream_per_time.begin(), total_stream_per_time.end());
-
-        int max_exploit_count_per_edge_site = data.get_mtime_num() - ((data.get_mtime_num() * 19 - 1) / 20 + 1);
-        long long total = max_exploit_count_per_edge_site * valid_edge_site.size();
-
-        vector<int> exploit_num_per_time(data.get_mtime_num());
-        for (size_t i = 0; i < total_stream_per_time.size(); ++i) {
-            int m_time = total_stream_per_time[i].second;
-            int stream = total_stream_per_time[i].first;
-            exploit_num_per_time[m_time] = (total * stream / total_stream);
-            total -= exploit_num_per_time[m_time];
-            total_stream -= stream;
+            tree[edge_site] = WeightSegmentTree(data.site_bandwidth[edge_site]);
+            tree[edge_site].update(0, 0, data.site_bandwidth[edge_site], 0, data.get_mtime_num());
         }
 
-        vector<vector<int>> edge_site_cap_per_time(data.get_mtime_num());
-        vector<int> valid_edge_site_bandwidth(data.get_edge_num(), 0);
-        for (const auto &edge_site : valid_edge_site) {
-            valid_edge_site_bandwidth[edge_site] = data.site_bandwidth[edge_site];
-        }
+        // 从1开始计数的下标
+        int order_95 = (data.get_mtime_num() * 19 - 1) / 20 + 1;
 
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            edge_site_cap_per_time[m_time] = valid_edge_site_bandwidth;
-        }
+        vector<int> edge_stream_95(data.get_edge_num(), 0);
+        vector<int> edge_stream_96(data.get_edge_num(), 0);
+        vector<vector<int>> edge_site_total_stream_per_time(data.get_mtime_num(), vector<int>(data.get_edge_num(), 0));
+        vector<double> pre_edge_site_cost(data.get_mtime_num(), 0.0);
 
-        vector<int> exploit_count(data.get_edge_num(), 0);
-        vector<set<int>> exploit_edge_site_per_time(data.get_mtime_num());
-
-        // 一个一个取exploit点
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            while ((int)exploit_edge_site_per_time[m_time].size() < exploit_num_per_time[m_time]) {
-                // 计算此时刻 每个edge_site 连接的需求总量
-                vector<pair<int, int>> total_stream_per_edge_site(data.get_edge_num(), {0, 0});
-                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                    total_stream_per_edge_site[edge_site].second = edge_site;
-                }
-
-                for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
-                    if (vis_stream_per_time[m_time][stream_index] == true) {
-                        continue;
-                    }
-                    const auto &stream = stream_per_time[m_time][stream_index];
-                    int stream_flow = stream.first;
-                    int customer_site = stream.second.second;
-                    for (const auto &edge_site : valid_edge_site) {
-                        if (data.qos[customer_site][edge_site] < data.qos_constraint) {
-                            total_stream_per_edge_site[edge_site].first += stream_flow;
-                        }
-                    }
-                }
-                for (const auto &edge_site : valid_edge_site) {
-                    total_stream_per_edge_site[edge_site].first =
-                        min(total_stream_per_edge_site[edge_site].first, edge_site_cap_per_time[m_time][edge_site]);
-                }
-
-                sort(total_stream_per_edge_site.begin(), total_stream_per_edge_site.end(), greater<pair<int, int>>());
-                // 找到第一个使用次数没到限制,并且没有被本轮用过的点
-                int exploit_edge_site = -1;
-                for (const auto &tmp : total_stream_per_edge_site) {
-                    int edge_site = tmp.second;
-                    if (exploit_count[edge_site] < max_exploit_count_per_edge_site &&
-                        exploit_edge_site_per_time[m_time].count(edge_site) == 0) {
-                        if (tmp.first == 0) {
-                            break;
-                        } else {
-                            exploit_edge_site = edge_site;
-                        }
-                    }
-                }
-                if (exploit_edge_site == -1) {
-                    break;
-                }
-
-                ++exploit_count[exploit_edge_site];
-                exploit_edge_site_per_time[m_time].insert(exploit_edge_site);
-
-                for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
-                    if (vis_stream_per_time[m_time][stream_index] == true) {
-                        continue;
-                    }
-                    const auto &stream = stream_per_time[m_time][stream_index];
-                    int customer_site = stream.second.second;
-                    int stream_flow = stream.first;
-                    if (edge_site_cap_per_time[m_time][exploit_edge_site] >= stream_flow) {
-                        if (data.qos[customer_site][exploit_edge_site] < data.qos_constraint) { // qos 限制
-                            ans[m_time][exploit_edge_site].push_back(stream);
-                            edge_site_cap_per_time[m_time][exploit_edge_site] -= stream_flow;
-                            vis_stream_per_time[m_time][stream_index] = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            // 调整cap
-            auto &edge_cap = edge_site_cap_per_time[m_time];
-            for (const auto &edge_site : valid_edge_site) {
-                if (exploit_edge_site_per_time[m_time].count(edge_site) == 0) {
-                    edge_cap[edge_site] =
-                        min(data.base_cost, edge_cap[edge_site]); // 只会调整valid 且 本次没有被exploit的点,
-                                                                  // 实际取base_cost 和 bandwidth[edge_site]的较小值
-                }
-            }
-
-            for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
-                if (vis_stream_per_time[m_time][stream_index] == true) {
-                    continue;
-                }
-                const auto &stream = stream_per_time[m_time][stream_index];
-                int stream_flow = stream.first;
-                int customer_site = stream.second.second;
-                for (const auto &edge_site : valid_edge_site) {
-                    if (edge_cap[edge_site] >= stream_flow) {
-                        if (data.qos[customer_site][edge_site] < data.qos_constraint) { // qos 限制
-                            ans[m_time][edge_site].push_back(stream);
-                            edge_cap[edge_site] -= stream_flow;
-                            vis_stream_per_time[m_time][stream_index] = true;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        bool is_success = true;
         for (size_t m_time = 0; m_time < data.get_mtime_num() && is_success; ++m_time) {
-            // debug << "m_time : " << m_time << endl;
-            // 调整cap
-            auto &edge_cap = edge_site_cap_per_time[m_time];
-            for (const auto &edge_site : valid_edge_site) {
-                if (exploit_edge_site_per_time[m_time].count(edge_site) == 0) {
-                    if (data.base_cost < data.site_bandwidth[edge_site]) {
-                        edge_cap[edge_site] = data.site_bandwidth[edge_site] - (data.base_cost - edge_cap[edge_site]);
-                    }
-                }
-            }
-
+            vector<int> edge_cap = data.site_bandwidth;
             for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
-                // debug << "stream : " << stream_index << " ";
-                if (vis_stream_per_time[m_time][stream_index] == true) {
-                    continue;
-                }
                 const auto &stream = stream_per_time[m_time][stream_index];
-                int stream_flow = stream.first;
-                int customer_site = stream.second.second;
-                for (const auto &edge_site : valid_edge_site) {
-                    if (edge_cap[edge_site] >= stream_flow) {
-                        if (data.qos[customer_site][edge_site] < data.qos_constraint) { // qos 限制
-                            ans[m_time][edge_site].push_back(stream);
-                            edge_cap[edge_site] -= stream_flow;
-                            vis_stream_per_time[m_time][stream_index] = true;
-                            break;
-                        }
+                const int flow = stream.first;
+                const int customer_site = stream.second.second;
+                vector<pair<double, int>> cost_per_edge_site;
+                cost_per_edge_site.reserve(data.get_customer_num());
+                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+                    /* 加不进去, 跳过*/
+                    if (data.qos[customer_site][edge_site] >= data.qos_constraint || edge_cap[edge_site] < flow) {
+                        continue;
+                    }
+
+                    /* 确定当前95值是多少*/
+                    int new_flow = edge_site_total_stream_per_time[m_time][edge_site] + flow;
+                    int new_95_flow = 0;
+                    if (new_flow <= edge_stream_95[edge_site]) {
+                        new_95_flow = edge_stream_95[edge_site];
+                    } else if (new_flow > edge_stream_95[edge_site] && new_flow <= edge_stream_96[edge_site]) {
+                        new_95_flow = new_flow;
+                    } else {
+                        new_95_flow = edge_stream_96[edge_site];
+                    }
+
+                    /* 计算当前cost是多少*/
+                    double cost = 0.0;
+                    if (new_95_flow <= data.base_cost) {
+                        cost = data.base_cost;
+                    } else {
+                        cost = 1.0 * (new_95_flow - data.base_cost) * (new_95_flow - data.base_cost) /
+                                   data.site_bandwidth[edge_site] +
+                               new_95_flow;
+                    }
+
+                    /* 计算本轮增加的cost是多少*/
+                    cost -= pre_edge_site_cost[edge_site];
+                    cost_per_edge_site.push_back({cost, edge_site});
+
+                    /*本轮增加0, 取这个结果不需要进一步遍历*/
+                    if (cost < 1e-6) {
+                        break;
                     }
                 }
-                if (vis_stream_per_time[m_time][stream_index] == false) {
+                if (cost_per_edge_site.empty() == true) {
                     is_success = false;
                     break;
                 }
+                sort(cost_per_edge_site.begin(), cost_per_edge_site.end());
+                // TODO :如果是空判一下失败
+                int add_cost = cost_per_edge_site.front().first;
+                int edge_site = cost_per_edge_site.front().second;
+                int old_flow = edge_site_total_stream_per_time[m_time][edge_site];
+                tree[edge_site].update(0, 0, data.site_bandwidth[edge_site], old_flow, -1);
+                int new_flow = old_flow + flow;
+                tree[edge_site].update(0, 0, data.site_bandwidth[edge_site], new_flow, 1);
+                if (new_flow > edge_stream_95[edge_site] && new_flow <= edge_stream_96[edge_site]) {
+                    edge_stream_95[edge_site] = new_flow;
+                } else if (new_flow > edge_stream_96[edge_site]) {
+                    edge_stream_95[edge_site] = edge_stream_96[edge_site];
+                    edge_stream_96[edge_site] =
+                        tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], order_95 + 1);
+                }
+                edge_site_total_stream_per_time[m_time][edge_site] = new_flow;
+                pre_edge_site_cost[edge_site] += add_cost;
+                ans[m_time][edge_site].push_back(stream);
             }
-            // debug << endl;
         }
-
+        // [m_time][edge_site][...] <steam, <stream_type, customer_site>>
+        // vector<vector<vector<pair<int, pair<int, int>>>>> ans;
+        // 将答案整合进distribution中
+        // [mtime][customer][...] = <edge_site, stream_type>
         if (is_success == true) {
             Distribution distribution(data.demand.size(), vector<vector<pair<int, int>>>(data.customer_site.size()));
             for (size_t m_time = 0; m_time < data.demand.size(); ++m_time) {
@@ -352,7 +253,7 @@ public:
 
     Distribution excute() {
         init();
-        optimize();
+        greedy();
         return best_distribution;
     }
     FFD(Data data) : data(data) {
