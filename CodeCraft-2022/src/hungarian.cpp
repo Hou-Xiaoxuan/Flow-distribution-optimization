@@ -3,7 +3,7 @@
  * @Date: 2022-04-03 21:52:23
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-03 22:48:40
+ * @LastEditTime: 2022-04-03 23:51:08
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.cpp
  */
 #include "hungarian.h"
@@ -160,7 +160,6 @@ vector<int> Hungarian::get_edge_order_by_simple_hungarian()
             }
         }
         this->update_distribution_per_mtime(mtime, distribution, matched_per_edge, stream_node);
-        // debug << "excute match in mtime :" << mtime << endl;
     }
     this->update_best_distribution(distribution);
 
@@ -374,10 +373,8 @@ void Hungarian::do_exploit_on_edge_order(vector<int> edge_order)
     /* 选取点进行exploit */
     vector<int> exploit_count(data.get_edge_num(), 0);
     int max_exploit_count = data.get_mtime_num() - ((data.get_mtime_num() * 95 - 1) / 100 + 1);
-    int debug_coutn = 0;
-    while (true and ++debug_coutn)
+    while (true)
     {
-        debug << "exploit times: " << debug_coutn << endl;
         struct {
             int flow = -1;
             int mtime = -1;
