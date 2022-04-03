@@ -13,6 +13,7 @@
 using namespace std;
 class FFD {
     const Data data;
+    //[mtime][customer][...] = <edge_site, stream_type>
     Distribution best_distribution;
     long long best_cost = LONG_LONG_MAX;
 
@@ -135,6 +136,7 @@ public:
             vis_stream_per_time[m_time] = vector<bool>(demand_now_time.size(), false);
         }
 
+        // 遍历best_distribution 确定使用哪些edge_site
         vector<bool> vis_edge_site(data.get_edge_num(), false);
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
             for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
@@ -157,18 +159,19 @@ public:
         long long total_stream = 0;
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
             total_stream_per_time[m_time].second = m_time;
-            for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
-                for (const auto &stream : data.demand[m_time][customer_site]) {
-                    total_stream_per_time[m_time].first += stream.first;
-                    total_stream += stream.first;
-                }
+            for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
+                const auto &stream = stream_per_time[m_time][stream_index];
+                int stream_flow = stream.first;
+                total_stream_per_time[m_time].first += stream_flow;
+                total_stream += stream_flow;
             }
         }
+        sort(total_stream_per_time.begin(), total_stream_per_time.end());
 
         int max_exploit_count_per_edge_site = data.get_mtime_num() - ((data.get_mtime_num() * 19 - 1) / 20 + 1);
         long long total = max_exploit_count_per_edge_site * valid_edge_site.size();
+
         vector<int> exploit_num_per_time(data.get_mtime_num());
-        sort(total_stream_per_time.begin(), total_stream_per_time.end());
         for (size_t i = 0; i < total_stream_per_time.size(); ++i) {
             int m_time = total_stream_per_time[i].second;
             int stream = total_stream_per_time[i].first;
@@ -176,15 +179,23 @@ public:
             total -= exploit_num_per_time[m_time];
             total_stream -= stream;
         }
+
         vector<vector<int>> edge_site_cap_per_time(data.get_mtime_num());
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            edge_site_cap_per_time[m_time] = data.site_bandwidth;
+        vector<int> valid_edge_site_bandwidth(data.get_edge_num(), 0);
+        for (const auto &edge_site : valid_edge_site) {
+            valid_edge_site_bandwidth[edge_site] = data.site_bandwidth[edge_site];
         }
+
+        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+            edge_site_cap_per_time[m_time] = valid_edge_site_bandwidth;
+        }
+
         vector<int> exploit_count(data.get_edge_num(), 0);
         vector<set<int>> exploit_edge_site_per_time(data.get_mtime_num());
+
         // 一个一个取exploit点
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            for (int cnt = 0; cnt < exploit_count[m_time]; ++cnt) {
+            while ((int)exploit_edge_site_per_time[m_time].size() < exploit_num_per_time[m_time]) {
                 // 计算此时刻 每个edge_site 连接的需求总量
                 vector<pair<int, int>> total_stream_per_edge_site(data.get_edge_num(), {0, 0});
                 for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
@@ -204,6 +215,10 @@ public:
                         }
                     }
                 }
+                for (const auto &edge_site : valid_edge_site) {
+                    total_stream_per_edge_site[edge_site].first =
+                        min(total_stream_per_edge_site[edge_site].first, edge_site_cap_per_time[m_time][edge_site]);
+                }
 
                 sort(total_stream_per_edge_site.begin(), total_stream_per_edge_site.end(), greater<pair<int, int>>());
                 // 找到第一个使用次数没到限制,并且没有被本轮用过的点
@@ -211,8 +226,7 @@ public:
                 for (const auto &tmp : total_stream_per_edge_site) {
                     int edge_site = tmp.second;
                     if (exploit_count[edge_site] < max_exploit_count_per_edge_site &&
-                        exploit_edge_site_per_time[m_time].find(edge_site) ==
-                            exploit_edge_site_per_time[m_time].end()) {
+                        exploit_edge_site_per_time[m_time].count(edge_site) == 0) {
                         if (tmp.first == 0) {
                             break;
                         } else {
@@ -223,6 +237,9 @@ public:
                 if (exploit_edge_site == -1) {
                     break;
                 }
+                
+                ++exploit_count[exploit_edge_site];
+                exploit_edge_site_per_time[m_time].insert(exploit_edge_site);
 
                 for (size_t stream_index = 0; stream_index < stream_per_time[m_time].size(); ++stream_index) {
                     if (vis_stream_per_time[m_time][stream_index] == true) {
@@ -239,8 +256,6 @@ public:
                         }
                     }
                 }
-                ++exploit_count[exploit_edge_site];
-                exploit_edge_site_per_time[m_time].insert(exploit_edge_site);
             }
         }
 
@@ -249,7 +264,9 @@ public:
             auto &edge_cap = edge_site_cap_per_time[m_time];
             for (const auto &edge_site : valid_edge_site) {
                 if (exploit_edge_site_per_time[m_time].count(edge_site) == 0) {
-                    edge_cap[edge_site] = min(data.base_cost, edge_cap[edge_site]);
+                    edge_cap[edge_site] =
+                        min(data.base_cost, edge_cap[edge_site]); // 只会调整valid 且 本次没有被exploit的点,
+                                                                  // 实际取base_cost 和 bandwidth[edge_site]的较小值
                 }
             }
 
