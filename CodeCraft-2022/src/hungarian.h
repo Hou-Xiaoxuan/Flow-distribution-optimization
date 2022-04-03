@@ -3,14 +3,14 @@
  * @Date: 2022-04-01 14:06:08
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-03 16:02:39
+ * @LastEditTime: 2022-04-03 20:50:39
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.h
  */
 #ifndef _HUNGARIAN_
-#define _HUNGARIAN
-#include "config.h"
-#include "data.h"
-#include <bits/stdc++.h>
+ #define _HUNGARIAN
+ #include "config.h"
+ #include "data.h"
+ #include <bits/stdc++.h>
 using namespace std;
 /*  边缘节点作为可以多次匹配的右节点
     细分的流量作为单词匹配的左节点 进行二分图匹配
@@ -30,7 +30,8 @@ class Hungarian
 private:
     /* data */
     Data data;
-    Distribution distribution;    // 最终分配结果
+    Distribution best_distribution;    // 最终分配结果
+    int best_cost;
 
     /*--------------------工具函数----------------------------------------*/
     inline bool is_connect(size_t customer_site, size_t edge_site) const
@@ -40,7 +41,7 @@ private:
     /*-----------------------do something per mtime-----------------------*/
     /* 在m_time上执行匹配 */
     bool excute_match_per_mtime(vector<Stream> &stream_node, vector<vector<int>> &matched_per_edge,
-        vector<int> &residual_capacity, const vector<int> &edge_order)
+        vector<int> &residual_capacity, const vector<int> &edge_order, int max_depth = 0)
     {
         // 初始化
         vector<bool> vis(data.get_edge_num(), false);
@@ -63,7 +64,8 @@ private:
                 }
             }
 
-            if (depth <= 0) return false;
+            if (depth <= 0)
+                return false;
             // 没有剩余容量: 以匹配的流量中，能腾出空间的，重新匹配
             // 再此过程中，需要标记不要重复访问边缘节点
             for (size_t edge_site : edge_order)
@@ -93,7 +95,6 @@ private:
                     vis[edge_site] = false;    // 回退标记
                 }
             }
-
             return false;
         };
 
@@ -101,14 +102,14 @@ private:
         bool flag = true;
         for (size_t i = 0; i < stream_node.size(); i++)
         {
-            if (stream_node[i].used == false and find_path(i, 0))
+            if (stream_node[i].used == false and find_path(i, max_depth))
             {
                 stream_node[i].used = true;
                 continue;
             }
             else
             {
-                flag = true;
+                flag = false;
                 break;
             }
         }
@@ -116,12 +117,12 @@ private:
         return flag;
     }
 
-    void update_distribution_per_mtime(
-        size_t mtime, const vector<vector<int>> &matched_per_edge, const vector<Stream> &stream_node)
+    void update_distribution_per_mtime(size_t mtime, Distribution &distribution,
+        const vector<vector<int>> &matched_per_edge, const vector<Stream> &stream_node)
     {
         // 写入distribution
-        this->distribution[mtime].assign(data.get_customer_num(), vector<pair<int, int>>());
-        Distribution_t &distribution_t = this->distribution[mtime];
+        distribution[mtime].assign(data.get_customer_num(), vector<pair<int, int>>());
+        Distribution_t &distribution_t = distribution[mtime];
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); edge_site++)
         {
             for (int i : matched_per_edge[edge_site])
@@ -132,47 +133,200 @@ private:
         }
     }
 
+    void update_best_distribution(const Distribution &distribution)
+    {
+        int cost = cal_cost(data, distribution);
+        if (cost < best_cost)
+        {
+            debug << "from " << this->best_cost << " to " << cost << endl;
+            this->best_cost = cost;
+            this->best_distribution = distribution;
+        }
+    }
+
 public:
-    Hungarian(const Data &_data) : data(_data) { this->distribution.assign(data.get_mtime_num(), Distribution_t()); }
+    Hungarian(const Data &_data) : data(_data), best_cost(INT32_MAX) { }
+
     Distribution excute()
     {
-        vector<Stream> stream_node;              // 客户流量 3500
-        vector<vector<int>> matched_per_edge;    // edge节点的匹配数组
-        vector<int> residual_capacity;           // 边缘节点剩余容量 135
-        vector<int> edge_order;                  // 边缘节点的遍历顺序
+        Distribution distribution(data.get_mtime_num(), Distribution_t());
 
-        for (size_t i = 0; i < data.get_edge_num(); i++)
-            edge_order.push_back(i);
+        vector<int> edge_order;     // 边缘节点的遍历顺序
+        set<int> used_edge_site;    // 使用过的ede_site
+        /*-----------------------------------执行一次FFD的匹配逻辑， 获取使用到的edge_site----------------------------*/
+        auto process_one = [&]() -> void {
+            for (size_t i = 0; i < data.get_edge_num(); i++)
+            {
+                edge_order.push_back(i);
+            }
 
+            for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+            {
+                vector<Stream> stream_node;    // 客户流量 3500
+                // 摊平图,并排序
+                stream_node.reserve(data.get_customer_num() * 100);
+                const auto &demant_t = data.demand[mtime];
+                for (size_t i = 0; i < demant_t.size(); i++)
+                {
+                    for (auto item : demant_t[i])
+                    {
+                        if (item.first > 0)
+                        {    // 筛掉flow为0的流量
+                            stream_node.push_back({static_cast<int>(i), item.first, item.second});
+                        }
+                    }
+                }
+                stream_node.shrink_to_fit();
+                sort(stream_node.begin(), stream_node.end(), greater<Stream>());
+
+                vector<vector<int>> matched_per_edge(data.get_edge_num());    // edge节点的匹配数组
+                vector<int> residual_capacity = data.site_bandwidth;          // 边缘节点剩余容量 135
+
+                this->excute_match_per_mtime(stream_node, matched_per_edge, residual_capacity, edge_order);
+
+                // 更新used_edge_site
+                for (size_t edge_site : edge_order)
+                {
+                    if (residual_capacity[edge_site] != data.site_bandwidth[edge_site])
+                    {
+                        used_edge_site.insert(edge_site);
+                    }
+                }
+                this->update_distribution_per_mtime(mtime, distribution, matched_per_edge, stream_node);
+                // debug << "excute match in mtime :" << mtime << endl;
+            }
+            this->update_best_distribution(distribution);
+            /*获取edge_order*/
+            vector<int>().swap(edge_order);    // 清空edge_order
+            edge_order.reserve(data.get_edge_num());
+            for (auto ite : used_edge_site)
+            {
+                edge_order.push_back(ite);
+            }
+        };
+        process_one();
+
+
+        /*-------------------------------执行exploit逻辑--------------------------------------------*/
+        /* 初始化per_time变量 */
+        vector<vector<vector<int>>> edge_matched_per_mtime(
+            data.get_mtime_num(), vector<vector<int>>(data.get_edge_num()));    // edge节点的匹配数组
+        vector<vector<Stream>> stream_ndoe_per_mtime(data.get_mtime_num());     // stream_node
+        vector<vector<int>> residual_capacity(data.get_mtime_num(), data.site_bandwidth);    // 边缘节点剩余容量 135
         for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
         {
-            // 摊平图,并排序
-            vector<Stream>().swap(stream_node);    // 清空
-            stream_node.reserve(data.get_customer_num() * 100);
             const auto &demant_t = data.demand[mtime];
+            auto &stream_node = stream_ndoe_per_mtime[mtime];
+            stream_node.reserve(data.get_customer_num() * 100);
             for (size_t i = 0; i < demant_t.size(); i++)
             {
                 for (auto item : demant_t[i])
                 {
                     if (item.first > 0)
-                    {    // 筛掉flow为0的流量
+                    {
                         stream_node.push_back({static_cast<int>(i), item.first, item.second});
                     }
                 }
             }
             stream_node.shrink_to_fit();
             sort(stream_node.begin(), stream_node.end(), greater<Stream>());
-
-            matched_per_edge.assign(data.get_edge_num(), vector<int>());
-            residual_capacity = data.site_bandwidth;
-
-            this->excute_match_per_mtime(stream_node, matched_per_edge, residual_capacity, edge_order);
-
-            this->update_distribution_per_mtime(mtime, matched_per_edge, stream_node);
-            debug << "excute match in mtime :" << mtime << endl;
         }
 
-        return this->distribution;
+        /* 函数，获取指定时刻的edge需求并从大到小排序*/
+        auto get_demand_sequence = [&](const vector<Stream> &stream_ndoe) -> vector<pair<int, int>> {
+            vector<pair<int, int>> demand_sequence(data.get_edge_num());
+            for (auto edge_site : edge_order)
+            {
+                demand_sequence[edge_site].first = edge_site;
+                for (const auto &stream : stream_ndoe)
+                {
+                    if (this->is_connect(stream.customer_site, edge_site))
+                    {
+                        demand_sequence[edge_site].first += stream.flow;
+                    }
+                }
+            }
+            sort(demand_sequence.begin(), demand_sequence.end());
+            return demand_sequence;
+        };
+        vector<vector<pair<int, int>>> demand_sequence_per_mtime(data.get_mtime_num());
+        for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+        {
+            demand_sequence_per_mtime[mtime] = get_demand_sequence(stream_ndoe_per_mtime[mtime]);
+        }
+
+        /* 选取点进行exploit */
+        vector<int> exploit_count(data.get_edge_num(), 0);
+        int max_exploit_count = data.get_mtime_num() - ((data.get_mtime_num() * 95 - 1) / 100 + 1);
+        int debug_coutn = 0;
+        while (true and ++debug_coutn)
+        {
+            debug << "exploit times: " << debug_coutn << endl;
+            struct {
+                int flow = -1;
+                int mtime = -1;
+                int edge_site = -1;
+            } site;
+            for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+            {
+                auto &demand_sequence = demand_sequence_per_mtime[mtime];
+                while (demand_sequence.empty() == false
+                    and exploit_count[demand_sequence.back().second] > max_exploit_count)
+                {
+                    demand_sequence.pop_back();
+                }
+                if (demand_sequence.empty() == false and demand_sequence.back().first > site.flow)
+                {
+                    site.flow = demand_sequence.back().first;
+                    site.edge_site = demand_sequence.back().second;
+                    site.mtime = mtime;
+                }
+            }
+
+            if (site.mtime == -1)
+                break;
+            // 执行exploit
+            auto &matched = edge_matched_per_mtime[site.mtime][site.edge_site];
+            auto &capacity = residual_capacity[site.mtime][site.edge_site];
+            auto &stream_node = stream_ndoe_per_mtime[site.mtime];
+            for (size_t i = 0; i < stream_node.size(); i++)
+            {
+                Stream &stream = stream_node[i];
+                // clang-format off
+                if (stream.used == false 
+                and this->is_connect(stream.customer_site, site.edge_site
+                and capacity >= site.flow)){
+                    stream.used = true;         // 标记为用过
+                    capacity -= stream.flow;    // 减去流量
+                    matched.push_back(i);       // 加入匹配
+                }
+                // clang-format on
+            }
+            // 更新状态
+            exploit_count[site.edge_site]++;
+            demand_sequence_per_mtime[site.mtime] = get_demand_sequence(stream_ndoe_per_mtime[site.mtime]);
+        }
+
+
+        /*重新进行FFD&&匈牙利*/
+        bool success = true;
+        for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+        {
+            success = this->excute_match_per_mtime(
+                stream_ndoe_per_mtime[mtime], edge_matched_per_mtime[mtime], residual_capacity[mtime], edge_order, 1);
+            if (success == true)
+                this->update_distribution_per_mtime(
+                    mtime, distribution, edge_matched_per_mtime[mtime], stream_ndoe_per_mtime[mtime]);
+            else
+                break;
+        }
+
+        if (success)
+        {
+            debug << "valid after exploit" << endl;
+            this->update_best_distribution(distribution);
+        }
+        return this->best_distribution;
     }
 };
 #endif

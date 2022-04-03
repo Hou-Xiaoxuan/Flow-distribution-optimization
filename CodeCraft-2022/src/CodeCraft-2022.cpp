@@ -6,16 +6,20 @@
 #include "config.h"
 #include "data.h"
 #include "hungarian.h"
-int main() {
+int main()
+{
     std::cout << INPUT << std::endl;
     Data data = read_file();
 
     // 实现功能
-
     Hungarian solve(data);
     Distribution distribution = solve.excute();
     output_distribution(data, distribution);
+    std::cout << "finally cost = " << cal_cost(data, distribution) << endl;
 
-    std::cout<<"over"<<endl;
+#ifdef _DEBUG
+    check_distribution(data, distribution);
+#endif
+    std::cout << "over" << endl;
     return 0;
 }
