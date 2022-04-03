@@ -224,6 +224,7 @@ public:
                 edge_site_total_stream_per_time[m_time][edge_site] = new_flow;
                 pre_edge_site_cost[edge_site] += add_cost;
                 ans[m_time][edge_site].push_back(stream);
+                edge_cap[edge_site] -= flow;
             }
         }
         // [m_time][edge_site][...] <steam, <stream_type, customer_site>>
