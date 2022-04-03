@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-02 22:18:15
+ * @LastEditTime: 2022-04-03 16:04:52
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -192,4 +192,61 @@ int cal_cost(const Data &data, const Distribution &distribution) {
         }
     }
     return (int)(cost + 0.5);
+}
+
+/*检查distribution是否合法*/
+// XXX 函数未测试
+bool check_distribution(const Data &data, const Distribution &Distribution)
+{
+    for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+    {
+        // [customer][...] = <edge_site, stream_type>
+        const Distribution_t &distribution_t = Distribution[mtime];
+        // [customer_site][index] = <bandwidth, stream_type>
+        const Distribution_t &demand_t = data.demand[mtime];
+        // 已分配流量
+        vector<long long> edge_capacity_used(data.get_edge_num());
+        for (size_t custome_site = 0; custome_site < data.get_customer_num(); custome_site++)
+        {
+            // 存一个stream_type -> edge_site的映射，顺带判断是否分配
+            unordered_map<int, int> distri;
+            for (auto item : distribution_t[custome_site])
+            {
+                distri[item.second] = item.first;
+            }
+            for (auto item : demand_t[custome_site])
+            {
+                // 流量非空
+                if (item.first > 0)
+                {
+                    // 正确分配了
+                    if (distri.count(item.second) == 1)
+                    {
+                        int edge_site = distri[item.second];
+                        // 检查分配是否合法
+                        if (data.qos[custome_site][edge_site] < data.qos_constraint)
+                            edge_capacity_used[edge_site] += item.first;
+                        else
+                            throw "mtiem: " + to_string(mtime) + " customer_site: " + to_string(custome_site) + " 分配"
+                                + " {flow: " + to_string(item.first) + " type: " + to_string(item.second) + "} to"
+                                + to_string(edge_site) + " qos=" + to_string(data.qos[custome_site][edge_site]) + " 超过限制 "
+                                + to_string(data.qos_constraint);
+                    }
+                    else    // 漏分配
+                        throw "mtiem: " + to_string(mtime) + " customer_site: " + to_string(custome_site) + " 没有分配流量"
+                            + " {flow: " + to_string(item.first) + " type: " + to_string(item.second) + "}";
+                }
+            }
+        }
+        // 检查容量
+        for (size_t i = 0; i < data.get_edge_num(); i++)
+        {
+            if (edge_capacity_used[i] > data.site_bandwidth[i])
+            {
+                throw "mtiem: " + to_string(mtime) + " edge_site: " + to_string(i) + " 分配总流量"
+                    + to_string(edge_capacity_used[i]) + " 超过最大容量 " + to_string(data.site_bandwidth[i]);
+            }
+        }
+    }
+    return true;
 }
