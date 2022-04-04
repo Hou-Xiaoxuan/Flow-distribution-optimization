@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-03 16:25:52
+ * @LastEditTime: 2022-04-04 17:01:29
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -165,19 +165,19 @@ void output_distribution(const Data &data, const Distribution &distribution) {
 int cal_cost(const Data &data, const Distribution &distribution) {
     double cost = 0.0;
     // 每个边缘节点的需求序列 [mtime][customer][...] = <edge_site, stream_type>
-    vector<vector<int>> demand_sequence(data.edge_site.size(), vector<int>(distribution.size()));
-    for (size_t m_time = 0; m_time < distribution.size(); m_time++) {
-        for (size_t customer_site = 0; customer_site < distribution[m_time].size(); ++customer_site) {
+    vector<vector<int>> demand_sequence(data.edge_site.size(), vector<int>(data.get_mtime_num(), 0));
+    for (size_t m_time = 0; m_time < data.get_mtime_num(); m_time++) {
+        for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
             for (auto item : distribution[m_time][customer_site]) {
-                int stream_type = item.second;
                 int edge_site = item.first;
+                int stream_type = item.second;
                 demand_sequence[edge_site][m_time] += data.stream_type_to_flow[m_time][customer_site].at(stream_type);
             }
         }
     }
     // 95%向上取整 <=> (n*19 - 1)/20 + 1, 从0计数再减1
     size_t index_95 = (demand_sequence[0].size() * 19 - 1) / 20;
-    for (size_t edge_site = 0; edge_site < data.edge_site.size(); ++edge_site) {
+    for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
         auto &sequence = demand_sequence[edge_site];
         if (sequence.empty() == true) {
             continue;

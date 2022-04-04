@@ -17,9 +17,11 @@ int main() {
 
 #ifdef _DEBUG
     check_distribution(data, distribution);
+    debug << cal_cost(data, distribution) << endl;
 #endif
 
     output_distribution(data, distribution);
+
     std::cout << "over" << std::endl;
     return 0;
 }
