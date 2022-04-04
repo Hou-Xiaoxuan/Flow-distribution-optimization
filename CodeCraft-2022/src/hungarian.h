@@ -3,11 +3,11 @@
  * @Date: 2022-04-01 14:06:08
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-04 23:38:03
+ * @LastEditTime: 2022-04-05 02:32:10
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.h
  */
 #ifndef _HUNGARIAN_
- #define _HUNGARIAN
+ #define _HUNGARIAN_
  #include "config.h"
  #include "data.h"
  #include <bits/stdc++.h>
@@ -94,7 +94,7 @@ public:
         while (min_limit <= max_limit)
         {
             int epoth_limit = (min_limit + max_limit) >> 1;
-            debug << "epoth: " << epoth_limit << endl;
+            debug << " -- epoth: " << epoth_limit << endl;
             vector<int> edge_order;     // 边缘节点的遍历顺序
             set<int> used_edge_site;    // 使用过的ede_site
             for (size_t i = 0; i < data.get_edge_num(); i++)

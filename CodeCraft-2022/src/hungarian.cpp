@@ -3,7 +3,7 @@
  * @Date: 2022-04-03 21:52:23
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-05 01:57:22
+ * @LastEditTime: 2022-04-05 02:21:44
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.cpp
  */
 #include "hungarian.h"
@@ -104,7 +104,7 @@ bool Hungarian::update_best_distribution(const Distribution &distribution)
     int cost = cal_cost(data, distribution);
     if (cost < best_cost)
     {
-        debug << "from " << this->best_cost << " to " << cost << endl;
+        debug << "! update !: from " << this->best_cost << " to " << cost << endl;
         this->best_cost = cost;
         this->best_distribution = distribution;
         return true;
@@ -182,9 +182,10 @@ void Hungarian::do_exploit_on_edge_order(vector<int> edge_order)
     /*-------------------------------执行exploit逻辑--------------------------------------------*/
     /* 初始化per_time变量 */
     vector<vector<vector<int>>> edge_matched_per_mtime(
-        data.get_mtime_num(), vector<vector<int>>(data.get_edge_num()));                 // edge节点的匹配数组
-    vector<vector<Stream>> stream_ndoe_per_mtime(data.get_mtime_num());                  // stream_node
-    vector<vector<int>> residual_capacity(data.get_mtime_num(), data.site_bandwidth);    // 边缘节点剩余容量 135
+        data.get_mtime_num(), vector<vector<int>>(data.get_edge_num()));    // edge节点的匹配数组
+    vector<vector<Stream>> stream_ndoe_per_mtime(data.get_mtime_num());     // stream_node
+    vector<vector<int>> residual_capacity_per_mtime(
+        data.get_mtime_num(), data.site_bandwidth);    // 边缘节点剩余容量 135
     for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
     {
         const auto &demant_t = data.demand[mtime];
@@ -223,9 +224,8 @@ void Hungarian::do_exploit_on_edge_order(vector<int> edge_order)
     };
     vector<vector<pair<int, int>>> demand_sequence_per_mtime(data.get_mtime_num());
     for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
-    {
         demand_sequence_per_mtime[mtime] = get_demand_sequence(stream_ndoe_per_mtime[mtime]);
-    }
+
 
     /* 选取点进行exploit */
     vector<int> exploit_count(data.get_edge_num(), 0);
@@ -257,7 +257,7 @@ void Hungarian::do_exploit_on_edge_order(vector<int> edge_order)
             break;
         // 执行exploit
         auto &matched = edge_matched_per_mtime[site.mtime][site.edge_site];
-        auto &capacity = residual_capacity[site.mtime][site.edge_site];
+        auto &capacity = residual_capacity_per_mtime[site.mtime][site.edge_site];
         auto &stream_node = stream_ndoe_per_mtime[site.mtime];
         for (size_t i = 0; i < stream_node.size(); i++)
         {
@@ -279,21 +279,54 @@ void Hungarian::do_exploit_on_edge_order(vector<int> edge_order)
 
 
     /*重新进行FFD&&匈牙利*/
-    bool success = true;
-    for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
-    {
-        success = this->excute_match_per_mtime(
-            stream_ndoe_per_mtime[mtime], edge_matched_per_mtime[mtime], residual_capacity[mtime], edge_order, 1);
-        if (success == true)
-            this->update_distribution_per_mtime(
-                mtime, distribution, edge_matched_per_mtime[mtime], stream_ndoe_per_mtime[mtime]);
-        else
-            break;
-    }
+    // bool success = true;
+    // for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+    // {
+    //     success = this->excute_match_per_mtime(
+    //         stream_ndoe_per_mtime[mtime], edge_matched_per_mtime[mtime], residual_capacity[mtime], edge_order, 1);
+    //     if (success == true)
+    //         this->update_distribution_per_mtime(
+    //             mtime, distribution, edge_matched_per_mtime[mtime], stream_ndoe_per_mtime[mtime]);
+    //     else
+    //         break;
+    // }
 
-    if (success)
+    // if (success)
+    // {
+    //     debug << "valid after exploit" << endl;
+    //     this->update_best_distribution(distribution);
+    // }
+
+    /*进行二分FFD&匈牙利*/
+    int max_bandwidth = *max_element(data.site_bandwidth.begin(), data.site_bandwidth.end());
+    int min_limit = data.base_cost, max_limit = max_bandwidth;
+    while (min_limit <= max_limit)
     {
-        debug << "valid after exploit" << endl;
-        this->update_best_distribution(distribution);
+        int epoth_limit = (min_limit + max_limit) >> 1;
+        bool flag = true;
+        for (size_t mtime = 0; mtime < data.get_mtime_num(); mtime++)
+        {
+            //
+            auto stream_node = stream_ndoe_per_mtime[mtime];                // copy
+            auto edge_matched = edge_matched_per_mtime[mtime];              // copy
+            auto residual_capacity = residual_capacity_per_mtime[mtime];    // copy
+            for (auto edge_site : edge_order)
+            {
+                if (residual_capacity[edge_site] == data.site_bandwidth[edge_site])    // 没有被exploit过的点
+                    residual_capacity[edge_site] = min(residual_capacity[edge_site], epoth_limit);
+            }
+            flag = this->excute_match_per_mtime(stream_node, edge_matched, residual_capacity, edge_order, 1);
+            if (flag == false)
+                break;
+            this->update_distribution_per_mtime(mtime, distribution, edge_matched, stream_node);
+        }
+        if (flag == true)
+        {
+            max_limit = epoth_limit - 1;
+            this->update_best_distribution(distribution);
+        } else
+        {
+            min_limit = epoth_limit + 1;
+        }
     }
 }
