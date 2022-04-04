@@ -53,15 +53,15 @@ class FFD {
     int index_95;
 
 public:
-    void SA() {
+    void SA(double T, double dT, double end_T) {
         double now_cost = best_cost;
-        double T = 1e12;     //代表开始的温度
-        double dT = 0.99999; //代表系数delta T
-        double eps = 1e-14;
-        while (T > eps) {
+
+        vector<int> valid_edge_site;
+        valid_edge_site.reserve(data.get_edge_num());
+        while (T > end_T) {
             // 注意%0错误
 
-            /*随机选则edge_site_one*/
+            /*随机选择 edge_site_one*/
             int edge_site_one = rand() % data.get_edge_num();
 
             if (edge_site_flow_95[edge_site_one] == 0) {
@@ -84,8 +84,7 @@ public:
 
             /*随机选择edge_site_two*/
             // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
-            vector<int> valid_edge_site;
-            valid_edge_site.reserve(data.get_edge_num());
+            valid_edge_site.resize(0);
             for (int edge_site = 0; edge_site < (int)data.get_edge_num(); ++edge_site) {
                 if (data.qos[customer_site][edge_site] < data.qos_constraint &&
                     edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site] &&
@@ -141,7 +140,7 @@ public:
             }
 
             if (is_acc == true) {
-                // 必须先删除 再插入
+                // 先删除
                 flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
                 edge_site_flow_95[edge_site_two] = new_flow_95_two;
@@ -158,6 +157,7 @@ public:
                         hollow_ans_index_per_m_time[m_time][edge_site_two].begin());
                 }
 
+                // 再插入
                 flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
                 edge_site_flow_95[edge_site_one] = new_flow_95_one;
@@ -181,11 +181,12 @@ public:
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, -1);
             }
 #ifdef _DEBUG
-            // debug << "T: " << T << " cost: " << now_cost << endl;
+            debug << "T: " << T << " cost: " << now_cost << endl;
 #endif
 
             T = T * dT; //降温
         }
+
         // 将答案整合进distribution中
         //[mtime][customer][...] = <edge_site, stream_type>
         Distribution distribution(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
@@ -200,7 +201,7 @@ public:
             }
         }
 
-        int cost = cal_cost(data, distribution);
+        double cost = cal_cost(data, distribution);
         if (cost < best_cost) {
             best_cost = cost;
             best_distribution = distribution;
@@ -313,12 +314,12 @@ public:
         }
         best_cost = total_cost;
 
-        debug << "init over" << endl;
+        cout << "init over" << endl;
     }
 
     Distribution excute() {
         simple_ffd();
-        SA();
+        SA(1e14, 0.9999994, 1e-6);
         return best_distribution;
     }
     FFD(Data data) : data(data) {
