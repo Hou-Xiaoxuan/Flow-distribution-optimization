@@ -27,11 +27,11 @@ public:
     void SA() {
 
         // [edge_site][flow][...] = m_time
-        vector<vector<vector<int>>> flow_to_m_time_per_eige_site(data.get_edge_num());
+        vector<vector<set<int>>> flow_to_m_time_per_eige_site(data.get_edge_num());
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-            flow_to_m_time_per_eige_site[edge_site].assign(data.site_bandwidth[edge_site] + 1, vector<int>());
+            flow_to_m_time_per_eige_site[edge_site].assign(data.site_bandwidth[edge_site] + 1, set<int>());
             for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-                flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[m_time][edge_site]].push_back(
+                flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[m_time][edge_site]].insert(
                     m_time);
             }
         }
@@ -66,21 +66,22 @@ public:
             }
         }
 
-        double T = 200000; //代表开始的温度
-        double dT = 0.99;  //代表系数delta T
-        double eps = 1e-14;
+        double T = 1e4;      //代表开始的温度
+        double dT = 0.99999; //代表系数delta T
+        double eps = 1e-2;
         int index_95 = get_k95_order();
         while (T > eps) {
             // 注意%0错误
 
-            /*随机选择m_time*/
-            int m_time = rand() % data.get_mtime_num();
-
             /*随机选则edge_site_one*/
-            int edge_site_one;
-            do {
-                edge_site_one = rand() % data.get_edge_num();
-            } while (ans[m_time][edge_site_one].size() == 0); // 不能为空
+            int edge_site_one = rand() % data.get_edge_num();
+
+            if (edge_stream_95[edge_site_one] == 0) {
+                continue; // 说明95值时没有flow
+            }
+
+            /*选择edge_site_one 95值的时点*/
+            int m_time = *flow_to_m_time_per_eige_site[edge_site_one][edge_stream_95[edge_site_one]].begin();
 
             /*随机选择stream*/
             int stream_index;
@@ -94,7 +95,6 @@ public:
             const int customer_site = stream.second.second;
 
             /*随机选择edge_site_two*/
-
             // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
             vector<int> valid_edge_site;
             valid_edge_site.reserve(data.get_edge_num());
@@ -106,7 +106,7 @@ public:
                 }
             }
             if (valid_edge_site.empty() == true) {
-                break;
+                continue;
             }
             int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
 
@@ -154,6 +154,9 @@ public:
 
             if (is_acc == true) {
                 // 必须先删除 再插入
+                flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
+                flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
+                edge_stream_95[edge_site_two] = new_flow_95_two;
                 edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
                 edge_site_total_stream_per_edge_site[edge_site_two] += flow;
                 pre_edge_site_cost[edge_site_two] = cost_two;
@@ -167,6 +170,9 @@ public:
                         remaining_ans_index[m_time][edge_site_two].begin());
                 }
 
+                flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
+                flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
+                edge_stream_95[edge_site_one] = new_flow_95_one;
                 edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
                 edge_site_total_stream_per_edge_site[edge_site_one] -= flow;
                 pre_edge_site_cost[edge_site_one] = cost_one;
