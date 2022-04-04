@@ -17,6 +17,7 @@ class FFD {
     Distribution best_distribution;
     int best_cost = INT_MAX;
 
+    vector<int> edge_stream_95;
     vector<vector<pair<int, pair<int, int>>>> stream_per_time;
     vector<WeightSegmentTree> tree;
     vector<vector<int>> edge_site_total_stream_per_time;
@@ -24,6 +25,18 @@ class FFD {
 
 public:
     void SA() {
+
+        // [edge_site][flow][...] = m_time
+        vector<vector<vector<int>>> flow_to_m_time_per_eige_site(data.get_edge_num());
+        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+            flow_to_m_time_per_eige_site[edge_site].assign(data.site_bandwidth[edge_site] + 1, vector<int>());
+            for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+                flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[m_time][edge_site]].push_back(
+                    m_time);
+            }
+        }
+
+        vector<int> edge_site_total_stream_per_edge_site(data.get_edge_num(), 0); // 每个edge_site的总流量
         /*从best_distribution 中获取一个由edge_site为索引的ans*/
         // [m_time][edge_site][...] <stream, <stream_type, customer_site>>
         vector<vector<unordered_map<int, pair<int, pair<int, int>>>>> ans(
@@ -35,6 +48,7 @@ public:
                     const int stream_type = stream.second;
                     const int stream_flow = data.stream_type_to_flow[m_time][customer_site].at(stream_type);
                     ans[m_time][edge_site][ans[m_time][edge_site].size()] = {stream_flow, {stream_type, customer_site}};
+                    edge_site_total_stream_per_edge_site[edge_site] += stream_flow;
                 }
             }
         }
@@ -52,9 +66,9 @@ public:
             }
         }
 
-        double T = 2000;  //代表开始的温度
-        double dT = 0.99; //代表系数delta T
-        double eps = 1e-5;
+        double T = 200000; //代表开始的温度
+        double dT = 0.99;  //代表系数delta T
+        double eps = 1e-14;
         int index_95 = get_k95_order();
         while (T > eps) {
             // 注意%0错误
@@ -96,14 +110,14 @@ public:
             }
             int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
 
-            /* 拿出后当前edge_site_one 花费是多少*/
+            /* 拿出后 edge_site_one 花费是多少*/
             const int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
             const int new_flow_one = old_flow_one - flow;
             tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
             tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
             const int new_flow_95_one = tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_95);
             double cost_one = 0.0;
-            if (ans[m_time][edge_site_one].size() != 1) {
+            if (edge_site_total_stream_per_edge_site[edge_site_one] - flow != 0) {
                 if (new_flow_95_one <= data.base_cost) {
                     cost_one = data.base_cost;
                 } else {
@@ -138,8 +152,10 @@ public:
                 is_acc = true;
             }
 
-            if (is_acc == true) { // 必须先删除 再插入
+            if (is_acc == true) {
+                // 必须先删除 再插入
                 edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
+                edge_site_total_stream_per_edge_site[edge_site_two] += flow;
                 pre_edge_site_cost[edge_site_two] = cost_two;
                 if (remaining_ans_index[m_time][edge_site_two].empty()) {
                     ans[m_time][edge_site_two][max_ans_index[m_time][edge_site_two]] = stream;
@@ -152,6 +168,7 @@ public:
                 }
 
                 edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
+                edge_site_total_stream_per_edge_site[edge_site_one] -= flow;
                 pre_edge_site_cost[edge_site_one] = cost_one;
                 ans[m_time][edge_site_one].erase(stream_index);
                 if (stream_index == max_ans_index[m_time][edge_site_one] - 1) {
@@ -162,30 +179,6 @@ public:
                     remaining_ans_index[m_time][edge_site_one].insert(stream_index);
                 }
                 now_cost += df;
-
-                // 将答案整合进distribution中
-                //[mtime][customer][...] = <edge_site, stream_type>
-                Distribution distribution(data.get_mtime_num(),
-                                          vector<vector<pair<int, int>>>(data.get_customer_num()));
-                for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-                    for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                        for (const auto &stream_with_key : ans[m_time][edge_site]) {
-                            const auto &stream = stream_with_key.second;
-                            int customer_site = stream.second.second;
-                            int stream_type = stream.second.first;
-                            distribution[m_time][customer_site].push_back({edge_site, stream_type});
-                        }
-                    }
-                }
-
-                int cost = cal_cost(data, distribution);
-                if (cost < best_cost) {
-                    best_cost = cost;
-                    best_distribution = distribution;
-                    cout << best_cost << endl;
-                }
-                assert(cost == int(now_cost + 0.5));
-                // assert(now_cost)
             } else {
                 // 回退
                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, 1);
@@ -263,7 +256,7 @@ public:
 
         // 从1开始计数的下标值
         int index_95 = get_k95_order();
-        vector<int> edge_stream_95(data.get_edge_num(), 0);
+        edge_stream_95.assign(data.get_edge_num(), 0);
         vector<int> edge_stream_96(data.get_edge_num(), 0);
         pre_edge_site_cost.assign(data.get_edge_num(), 0.0);
 

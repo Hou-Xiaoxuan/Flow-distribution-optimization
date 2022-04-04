@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-04 17:01:29
+ * @LastEditTime: 2022-04-04 21:55:58
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -183,15 +183,17 @@ int cal_cost(const Data &data, const Distribution &distribution) {
             continue;
         }
         sort(sequence.begin(), sequence.end());
+        double new_cost = 0.0;
         if (*sequence.rbegin() == 0) {
-            cost += 0;
+            new_cost = 0.0;
         } else if (sequence[index_95] <= data.base_cost) {
-            cost += data.base_cost;
+            new_cost = data.base_cost;
         } else {
-            cost += (1.0 * (sequence[index_95] - data.base_cost) * (sequence[index_95] - data.base_cost)) /
-                        data.site_bandwidth[edge_site] +
-                    sequence[index_95];
+            new_cost = (1.0 * (sequence[index_95] - data.base_cost) * (sequence[index_95] - data.base_cost)) /
+                           data.site_bandwidth[edge_site] +
+                       sequence[index_95];
         }
+        cost += new_cost;
     }
     return (int)(cost + 0.5);
 }
