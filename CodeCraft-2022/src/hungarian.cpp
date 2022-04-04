@@ -3,7 +3,7 @@
  * @Date: 2022-04-03 21:52:23
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-04 22:26:55
+ * @LastEditTime: 2022-04-05 01:57:22
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.cpp
  */
 #include "hungarian.h"
@@ -72,11 +72,8 @@ bool Hungarian::excute_match_per_mtime(vector<Stream> &stream_node, vector<vecto
     for (size_t i = 0; i < stream_node.size(); i++)
     {
         if (stream_node[i].used == false and find_path(i, max_depth))
-        {
             stream_node[i].used = true;
-            continue;
-        }
-        else
+        if (stream_node[i].used == false)
         {
             flag = false;
             break;
@@ -89,7 +86,7 @@ bool Hungarian::excute_match_per_mtime(vector<Stream> &stream_node, vector<vecto
 void Hungarian::update_distribution_per_mtime(size_t mtime, Distribution &distribution,
     const vector<vector<int>> &matched_per_edge, const vector<Stream> &stream_node)
 {
-    // 写入distribution
+    // TODO: 使用线段树优化
     distribution[mtime].assign(data.get_customer_num(), vector<pair<int, int>>());
     Distribution_t &distribution_t = distribution[mtime];
     for (size_t edge_site = 0; edge_site < data.get_edge_num(); edge_site++)
@@ -102,7 +99,7 @@ void Hungarian::update_distribution_per_mtime(size_t mtime, Distribution &distri
     }
 }
 
-void Hungarian::update_best_distribution(const Distribution &distribution)
+bool Hungarian::update_best_distribution(const Distribution &distribution)
 {
     int cost = cal_cost(data, distribution);
     if (cost < best_cost)
@@ -110,7 +107,9 @@ void Hungarian::update_best_distribution(const Distribution &distribution)
         debug << "from " << this->best_cost << " to " << cost << endl;
         this->best_cost = cost;
         this->best_distribution = distribution;
+        return true;
     }
+    return false;
 }
 
 /*-----------------------特殊函数-------------------------*/
