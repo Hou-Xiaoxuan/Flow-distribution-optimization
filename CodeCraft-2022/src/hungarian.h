@@ -3,7 +3,7 @@
  * @Date: 2022-04-01 14:06:08
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-03 22:50:20
+ * @LastEditTime: 2022-04-04 22:28:40
  * @FilePath: /FDO/CodeCraft-2022/src/hungarian.h
  */
 #ifndef _HUNGARIAN_
@@ -54,30 +54,12 @@ private:
     /* 执行一遍基本的FFD，获取用到的edge_site节点 */
     vector<int> get_edge_order_by_simple_hungarian();
 
-    /* 执行倍增逻辑，获取最优状态下的edge_site节点 */
-    void init();
-    vector<int> get_edge_order_by_beizeng();
-
     /*-------------------------在给定的edge_order上运行exploit-----------------------------*/
     void do_exploit_on_edge_order(vector<int> edge_order);
 
 public:
     Hungarian(const Data &_data) : data(_data), best_cost(INT32_MAX) { }
 
-    Distribution excute()
-    {
-
-        // 基本FFD获取的edge_order
-        // vector<int> edge_order = this->get_edge_order_by_simple_hungarian();
-
-        // 倍增算法获取到的edge_order
-        vector<int> edge_order = this->get_edge_order_by_beizeng();
-
-
-        // 执行exploit
-        this->do_exploit_on_edge_order(edge_order);
-
-        return this->best_distribution;
-    }
+    Distribution excute() { return this->best_distribution; }
 };
 #endif
