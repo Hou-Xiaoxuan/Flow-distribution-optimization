@@ -2,8 +2,8 @@
  * @Author: LinXuan
  * @Date: 2022-03-31 19:24:16
  * @Description:
- * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-02 22:11:09
+ * @LastEditors: xv_rong
+ * @LastEditTime: 2022-04-05 02:00:36
  * @FilePath: /FDO/CodeCraft-2022/src/data.h
  */
 #ifndef _DATA_
@@ -48,6 +48,6 @@ struct Data {
 Data read_file();
 void output_distribution(const Data &data, const Distribution &distribution);
 vector<string> get_split_line(ifstream &file, char delim);
-int cal_cost(const Data &data, const Distribution &distribution);
+double cal_cost(const Data &data, const Distribution &distribution);
 bool check_distribution(const Data &data, const Distribution &Distribution);
 #endif

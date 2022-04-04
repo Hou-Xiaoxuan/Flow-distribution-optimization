@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:12
  * @Description:
  * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-04 21:55:58
+ * @LastEditTime: 2022-04-05 01:59:46
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -162,7 +162,7 @@ void output_distribution(const Data &data, const Distribution &distribution) {
     fout.close();
 }
 
-int cal_cost(const Data &data, const Distribution &distribution) {
+double cal_cost(const Data &data, const Distribution &distribution) {
     double cost = 0.0;
     // 每个边缘节点的需求序列 [mtime][customer][...] = <edge_site, stream_type>
     vector<vector<int>> demand_sequence(data.edge_site.size(), vector<int>(data.get_mtime_num(), 0));
@@ -195,7 +195,7 @@ int cal_cost(const Data &data, const Distribution &distribution) {
         }
         cost += new_cost;
     }
-    return (int)(cost + 0.5);
+    return cost;
 }
 
 /*检查distribution是否合法*/

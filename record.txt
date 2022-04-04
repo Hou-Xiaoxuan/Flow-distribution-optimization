@@ -1,0 +1,54 @@
+/*
+ * @Author: xv_rong
+ * @Date: 2022-04-05 00:07:05
+ * @LastEditors: xv_rong
+ */
+double T = 1e12;     //代表开始的温度
+double dT = 0.99999; //代表系数delta T
+double eps = 1;
+1898504 82399
+
+    double T = 1e12; //代表开始的温度
+double dT = 0.99999; //代表系数delta T
+double eps = 1e2;
+1936368 76925
+
+    double T = 1e10;  //代表开始的温度
+double dT = 0.999999; //代表系数delta T
+double eps = 1e2;
+1423242 180365
+
+    double T = 1e12;   //代表开始的温度
+double dT = 0.9999999; //代表系数delta T
+double eps = 5e11;
+1714521 120983
+    ///
+
+    double T = 1e12;  //代表开始的温度
+double dT = 0.999999; //代表系数delta T
+double eps = 5e11;
+
+T = 1e5;      //代表开始的温度
+dT = 0.99999; //代表系数delta T
+eps = 1e-14;
+1551355 135276
+    /////
+    double T = 1e12;   //代表开始的温度
+double dT = 0.9999994; //代表系数delta T
+double eps = 1e2;
+
+T = 1e5;      //代表开始的温度
+dT = 0.99999; //代表系数delta T
+eps = 1e-14;
+
+1283646 334914
+    /////
+    double T = 1e12;   //代表开始的温度
+double dT = 0.9999999; //代表系数delta T
+double eps = 1e2;
+
+T = 1e5;      //代表开始的温度
+dT = 0.99999; //代表系数delta T
+eps = 1e-14;
+
+T了
