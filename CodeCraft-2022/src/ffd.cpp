@@ -37,7 +37,7 @@ class FFD {
     // [edge_site] = total_stream_per_edge_site
     vector<int> total_stream_per_edge_site;
 
-    // [edge_cost] = edge_site_cost
+    // [edge_site] = edge_site_cost
     vector<double> cost_per_edge_site;
 
     // [m_time][edge_site][...] <stream, <stream_type, customer_site>>
@@ -46,7 +46,7 @@ class FFD {
     // [m_time][edge_site][...] = hollow_ans_index
     vector<vector<unordered_set<int>>> hollow_ans_index_per_m_time;
 
-    // [m_time][edge_index] = max_ans_index
+    // [m_time][edge_site] = max_ans_index
     vector<vector<int>> max_ans_index_per_m_time;
 
     // 从1开始计数的95下标值
@@ -263,12 +263,20 @@ public:
         }
 
         /*使用ffd算法获得一组解*/
+
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+            vector<int> edge_order; // 决定每轮遍历的顺序
+            for (size_t edge_site = m_time % data.edge_site.size(); edge_site < data.edge_site.size(); ++edge_site) {
+                edge_order.push_back(edge_site);
+            }
+            for (size_t edge_site = 0; edge_site < m_time % data.edge_site.size(); ++edge_site) {
+                edge_order.push_back(edge_site);
+            }
             for (const auto &stream : stream_per_time[m_time]) {
                 const int flow = stream.first;
                 const int stream_type = stream.second.first;
                 const int customer_site = stream.second.second;
-                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+                for (auto edge_site : edge_order) {
                     if (edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site]) {
                         if (data.qos[customer_site][edge_site] < data.qos_constraint) { // qos 限制
                             edge_site_total_stream_per_time[m_time][edge_site] += flow;
@@ -319,11 +327,11 @@ public:
 
     Distribution excute() {
         simple_ffd();
-        SA(1e14, 0.9999994, 1e-6);
+        SA(1e12, 0.9999994, 1e2);
+        SA(1e5, 0.99999, 1e-14);
         return best_distribution;
     }
     FFD(Data data) : data(data) {
     }
 };
-
 #endif
