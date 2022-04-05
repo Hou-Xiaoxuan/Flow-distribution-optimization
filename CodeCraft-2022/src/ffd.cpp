@@ -265,10 +265,10 @@ public:
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
             // 决定每轮遍历的顺序
             edge_order.resize(0);
-            for (size_t edge_site = m_time % data.edge_site.size(); edge_site < data.edge_site.size(); ++edge_site) {
+            for (size_t edge_site = m_time % data.get_edge_num(); edge_site < data.get_edge_num(); ++edge_site) {
                 edge_order.push_back(edge_site);
             }
-            for (size_t edge_site = 0; edge_site < m_time % data.edge_site.size(); ++edge_site) {
+            for (size_t edge_site = 0; edge_site < m_time % data.get_edge_num(); ++edge_site) {
                 edge_order.push_back(edge_site);
             }
             for (const auto &stream : stream_per_time[m_time]) {
