@@ -50,7 +50,7 @@ class FFD {
     vector<vector<int>> max_ans_index_per_m_time;
 
     // 从1开始计数的95下标值
-    int index_95;
+    int index_95 = 0;
 
 public:
     void SA(double T, double dT, double end_T) {
@@ -58,127 +58,148 @@ public:
 
         vector<int> valid_edge_site;
         valid_edge_site.reserve(data.get_edge_num());
+        /*第一层循环降温*/
         while (T > end_T) {
-            // 注意%0错误
 
-            /*随机选择 edge_site_one*/
-            int edge_site_one = rand() % data.get_edge_num();
+            /*第二层循环, 在一个温度下达到热平衡*/
+            int cost_stop_num = 0;
+            double min_cost = now_cost;
+            double max_cost = now_cost;
+            // TODO: 更好的热平衡逻辑
+            while (cost_stop_num <= 10000) {
 
-            if (edge_site_flow_95[edge_site_one] == 0) {
-                continue; // 说明95值时没有flow
-            }
+                /*随机选择 edge_site_one*/
+                int edge_site_one = rand() % data.get_edge_num();
 
-            /*选择edge_site_one 95值的时点*/
-            int m_time = *flow_to_m_time_per_eige_site[edge_site_one][edge_site_flow_95[edge_site_one]].begin();
-
-            /*随机选择stream*/
-            int stream_index;
-            do {
-                stream_index = rand() % max_ans_index_per_m_time[m_time][edge_site_one];
-            } while (hollow_ans_index_per_m_time[m_time][edge_site_one].count(stream_index) !=
-                     0); // 下标在remaining_ans_index中就不会在ans中
-
-            const auto &stream = ans[m_time][edge_site_one][stream_index];
-            const int flow = stream.first;
-            const int customer_site = stream.second.second;
-
-            /*随机选择edge_site_two*/
-            // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
-            valid_edge_site.resize(0);
-            for (int edge_site = 0; edge_site < (int)data.get_edge_num(); ++edge_site) {
-                if (data.qos[customer_site][edge_site] < data.qos_constraint &&
-                    edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site] &&
-                    edge_site != edge_site_one) {
-                    valid_edge_site.push_back(edge_site);
+                if (edge_site_flow_95[edge_site_one] == 0) {
+                    // TODO: 考量一下 ++cost_stop_num;
+                    continue; // 说明95值时没有flow
                 }
-            }
-            if (valid_edge_site.empty() == true) {
-                continue;
-            }
-            int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
 
-            /* 拿出后 edge_site_one 花费是多少*/
-            const int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
-            const int new_flow_one = old_flow_one - flow;
-            tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
-            tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
-            const int new_flow_95_one = tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_95);
-            double cost_one = 0.0;
-            if (total_stream_per_edge_site[edge_site_one] - flow != 0) {
-                if (new_flow_95_one <= data.base_cost) {
-                    cost_one = data.base_cost;
+                /*选择edge_site_one 95值的时点*/
+                int m_time = *flow_to_m_time_per_eige_site[edge_site_one][edge_site_flow_95[edge_site_one]].begin();
+
+                /*随机选择stream*/
+                int stream_index;
+                do {
+                    stream_index = rand() % max_ans_index_per_m_time[m_time][edge_site_one];
+                } while (hollow_ans_index_per_m_time[m_time][edge_site_one].count(stream_index) !=
+                         0); // 下标在remaining_ans_index中就不会在ans中
+
+                const auto &stream = ans[m_time][edge_site_one][stream_index];
+                const int flow = stream.first;
+                const int customer_site = stream.second.second;
+
+                /*随机选择edge_site_two*/
+                // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
+                valid_edge_site.resize(0);
+                for (int edge_site = 0; edge_site < (int)data.get_edge_num(); ++edge_site) {
+                    if (data.qos[customer_site][edge_site] < data.qos_constraint &&
+                        edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site] &&
+                        edge_site != edge_site_one) {
+                        valid_edge_site.push_back(edge_site);
+                    }
+                }
+                if (valid_edge_site.empty() == true) {
+                    // TODO: 考量一下 ++cost_stop_num;
+                    continue;
+                }
+                int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
+
+                /* 拿出后 edge_site_one 花费是多少*/
+                const int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
+                const int new_flow_one = old_flow_one - flow;
+                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
+                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
+                const int new_flow_95_one =
+                    tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_95);
+                double cost_one = 0.0;
+                if (total_stream_per_edge_site[edge_site_one] - flow != 0) {
+                    if (new_flow_95_one <= data.base_cost) {
+                        cost_one = data.base_cost;
+                    } else {
+                        cost_one = 1.0 * (new_flow_95_one - data.base_cost) * (new_flow_95_one - data.base_cost) /
+                                       data.site_bandwidth[edge_site_one] +
+                                   new_flow_95_one;
+                    }
+                }
+
+                /* 放入后后当前edge_site_two 花费是多少*/
+                const int old_flow_two = edge_site_total_stream_per_time[m_time][edge_site_two];
+                const int new_flow_two = old_flow_two + flow;
+                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
+                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
+                const int new_flow_95_two =
+                    tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_95);
+                double cost_two = 0.0;
+                if (new_flow_95_two <= data.base_cost) {
+                    cost_two = data.base_cost;
                 } else {
-                    cost_one = 1.0 * (new_flow_95_one - data.base_cost) * (new_flow_95_one - data.base_cost) /
-                                   data.site_bandwidth[edge_site_one] +
-                               new_flow_95_one;
+                    cost_two = 1.0 * (new_flow_95_two - data.base_cost) * (new_flow_95_two - data.base_cost) /
+                                   data.site_bandwidth[edge_site_two] +
+                               new_flow_95_two;
                 }
-            }
 
-            /* 放入后后当前edge_site_two 花费是多少*/
-            const int old_flow_two = edge_site_total_stream_per_time[m_time][edge_site_two];
-            const int new_flow_two = old_flow_two + flow;
-            tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
-            tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
-            const int new_flow_95_two = tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_95);
-            double cost_two = 0.0;
-            if (new_flow_95_two <= data.base_cost) {
-                cost_two = data.base_cost;
-            } else {
-                cost_two = 1.0 * (new_flow_95_two - data.base_cost) * (new_flow_95_two - data.base_cost) /
-                               data.site_bandwidth[edge_site_two] +
-                           new_flow_95_two;
-            }
+                /*考虑是否接受更新*/
+                int is_acc = false;
+                const double df =
+                    (cost_one + cost_two) - (cost_per_edge_site[edge_site_one] + cost_per_edge_site[edge_site_two]);
+                if (df < 0.0) {
+                    is_acc = true;
+                } else if (exp(-df / T) * RAND_MAX > rand()) {
+                    is_acc = true;
+                }
 
-            /*考虑是否接受更新*/
-            int is_acc = false;
-            const double df =
-                (cost_one + cost_two) - (cost_per_edge_site[edge_site_one] + cost_per_edge_site[edge_site_two]);
-            if (df < 0.0) {
-                is_acc = true;
-            } else if (exp(-df / T) * RAND_MAX > rand()) {
-                is_acc = true;
-            }
+                if (is_acc == true) {
+                    // 先插入
+                    flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
+                    flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
+                    edge_site_flow_95[edge_site_two] = new_flow_95_two;
+                    edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
+                    total_stream_per_edge_site[edge_site_two] += flow;
+                    cost_per_edge_site[edge_site_two] = cost_two;
+                    if (hollow_ans_index_per_m_time[m_time][edge_site_two].empty()) {
+                        ans[m_time][edge_site_two][max_ans_index_per_m_time[m_time][edge_site_two]] = stream;
+                        ++max_ans_index_per_m_time[m_time][edge_site_two];
+                    } else {
+                        int new_stream_index = *hollow_ans_index_per_m_time[m_time][edge_site_two].begin();
+                        ans[m_time][edge_site_two][new_stream_index] = stream;
+                        hollow_ans_index_per_m_time[m_time][edge_site_two].erase(
+                            hollow_ans_index_per_m_time[m_time][edge_site_two].begin());
+                    }
 
-            if (is_acc == true) {
-                // 先删除
-                flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
-                flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
-                edge_site_flow_95[edge_site_two] = new_flow_95_two;
-                edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
-                total_stream_per_edge_site[edge_site_two] += flow;
-                cost_per_edge_site[edge_site_two] = cost_two;
-                if (hollow_ans_index_per_m_time[m_time][edge_site_two].empty()) {
-                    ans[m_time][edge_site_two][max_ans_index_per_m_time[m_time][edge_site_two]] = stream;
-                    ++max_ans_index_per_m_time[m_time][edge_site_two];
+                    // 再删除
+                    flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
+                    flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
+                    edge_site_flow_95[edge_site_one] = new_flow_95_one;
+                    edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
+                    total_stream_per_edge_site[edge_site_one] -= flow;
+                    cost_per_edge_site[edge_site_one] = cost_one;
+                    ans[m_time][edge_site_one].erase(stream_index);
+                    if (stream_index == max_ans_index_per_m_time[m_time][edge_site_one] - 1) {
+                        --max_ans_index_per_m_time[m_time][edge_site_one];
+                        hollow_ans_index_per_m_time[m_time][edge_site_one].erase(
+                            max_ans_index_per_m_time[m_time][edge_site_one]); // 如果存在就应该删除
+                    } else {
+                        hollow_ans_index_per_m_time[m_time][edge_site_one].insert(stream_index);
+                    }
+                    now_cost += df;
                 } else {
-                    int new_stream_index = *hollow_ans_index_per_m_time[m_time][edge_site_two].begin();
-                    ans[m_time][edge_site_two][new_stream_index] = stream;
-                    hollow_ans_index_per_m_time[m_time][edge_site_two].erase(
-                        hollow_ans_index_per_m_time[m_time][edge_site_two].begin());
+                    // 回退
+                    tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, 1);
+                    tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, -1);
+                    tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, 1);
+                    tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, -1);
                 }
-
-                // 再插入
-                flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
-                flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
-                edge_site_flow_95[edge_site_one] = new_flow_95_one;
-                edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
-                total_stream_per_edge_site[edge_site_one] -= flow;
-                cost_per_edge_site[edge_site_one] = cost_one;
-                ans[m_time][edge_site_one].erase(stream_index);
-                if (stream_index == max_ans_index_per_m_time[m_time][edge_site_one] - 1) {
-                    --max_ans_index_per_m_time[m_time][edge_site_one];
-                    hollow_ans_index_per_m_time[m_time][edge_site_one].erase(
-                        max_ans_index_per_m_time[m_time][edge_site_one]); // 如果存在就应该删除
+                if (now_cost > max_cost) {
+                    max_cost = now_cost;
+                    cost_stop_num = 0;
+                } else if (now_cost < min_cost) {
+                    min_cost = now_cost;
+                    cost_stop_num = 0;
                 } else {
-                    hollow_ans_index_per_m_time[m_time][edge_site_one].insert(stream_index);
+                    ++cost_stop_num;
                 }
-                now_cost += df;
-            } else {
-                // 回退
-                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, 1);
-                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, -1);
-                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, 1);
-                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, -1);
             }
 #ifdef _DEBUG
             debug << "T: " << T << " cost: " << now_cost << endl;
@@ -263,12 +284,20 @@ public:
         }
 
         /*使用ffd算法获得一组解*/
+        vector<int> edge_order(data.get_edge_num()); // 决定每轮遍历的顺序
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+            edge_order.resize(0);
+            for (size_t edge_site = m_time % data.edge_site.size(); edge_site < data.edge_site.size(); ++edge_site) {
+                edge_order.push_back(edge_site);
+            }
+            for (size_t edge_site = 0; edge_site < m_time % data.edge_site.size(); ++edge_site) {
+                edge_order.push_back(edge_site);
+            }
             for (const auto &stream : stream_per_time[m_time]) {
                 const int flow = stream.first;
                 const int stream_type = stream.second.first;
                 const int customer_site = stream.second.second;
-                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+                for (const auto &edge_site : edge_order) {
                     if (edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site]) {
                         if (data.qos[customer_site][edge_site] < data.qos_constraint) { // qos 限制
                             edge_site_total_stream_per_time[m_time][edge_site] += flow;
@@ -319,7 +348,7 @@ public:
 
     Distribution excute() {
         simple_ffd();
-        SA(1e14, 0.9999994, 1e-6);
+        SA(1e10, 0.99, 1e-10);
         return best_distribution;
     }
     FFD(Data data) : data(data) {
