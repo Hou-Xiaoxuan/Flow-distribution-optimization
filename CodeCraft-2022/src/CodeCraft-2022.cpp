@@ -15,10 +15,10 @@ int main() {
     FFD ffd(data);
     Distribution distribution = ffd.excute();
 
-#ifdef _DEBUG
-    check_distribution(data, distribution);
-    debug << cal_cost(data, distribution) << endl;
-#endif
+    // #ifdef _DEBUG
+    //     check_distribution(data, distribution);
+    //     debug << cal_cost(data, distribution) << endl;
+    // #endif
 
     output_distribution(data, distribution);
 

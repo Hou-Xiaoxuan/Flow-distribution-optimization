@@ -187,23 +187,21 @@ public:
             T = T * dT; //降温
         }
 
-        // 将答案整合进distribution中
-        //[mtime][customer][...] = <edge_site, stream_type>
-        Distribution distribution(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                for (const auto &stream_with_key : ans[m_time][edge_site]) {
-                    const auto &stream = stream_with_key.second;
-                    int customer_site = stream.second.second;
-                    int stream_type = stream.second.first;
-                    distribution[m_time][customer_site].push_back({edge_site, stream_type});
+        if (now_cost < best_cost) {
+            best_cost = now_cost;
+            // 将答案整合进distribution中
+            //[mtime][customer][...] = <edge_site, stream_type>
+            Distribution distribution(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
+            for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+                    for (const auto &stream_with_key : ans[m_time][edge_site]) {
+                        const auto &stream = stream_with_key.second;
+                        int customer_site = stream.second.second;
+                        int stream_type = stream.second.first;
+                        distribution[m_time][customer_site].push_back({edge_site, stream_type});
+                    }
                 }
             }
-        }
-
-        double cost = cal_cost(data, distribution);
-        if (cost < best_cost) {
-            best_cost = cost;
             best_distribution = distribution;
             cout << best_cost << endl;
         }
@@ -263,9 +261,10 @@ public:
         }
 
         /*使用ffd算法获得一组解*/
-
+        vector<int> edge_order(data.get_edge_num());
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            vector<int> edge_order; // 决定每轮遍历的顺序
+            // 决定每轮遍历的顺序
+            edge_order.resize(0);
             for (size_t edge_site = m_time % data.edge_site.size(); edge_site < data.edge_site.size(); ++edge_site) {
                 edge_order.push_back(edge_site);
             }
