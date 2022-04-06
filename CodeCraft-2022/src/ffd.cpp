@@ -182,6 +182,16 @@ public:
             }
 
             if (is_acc == true) {
+                // #ifdef _DEBUG
+                //                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two,
+                //                 -1); tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two],
+                //                 new_flow_two, 1); int tmp_flow_95_two = tree[edge_site_two].queryK(0, 0,
+                //                 data.site_bandwidth[edge_site_two], index_95); tree[edge_site_two].update(0, 0,
+                //                 data.site_bandwidth[edge_site_two], old_flow_two, 1); tree[edge_site_two].update(0,
+                //                 0, data.site_bandwidth[edge_site_two], new_flow_two, -1); assert(tmp_flow_95_two ==
+                //                 new_flow_95_two);
+                // #endif
+
                 // 先插入
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
@@ -230,6 +240,14 @@ public:
                         }
                     }
                 }
+                // #ifdef _DEBUG
+                // assert(edge_site_flow_94[edge_site_two] ==
+                //        tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_94));
+                // assert(edge_site_flow_95[edge_site_two] ==
+                //        tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_95));
+                // assert(edge_site_flow_96[edge_site_two] ==
+                //        tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96));
+                // #endif
                 flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
                 edge_site_flow_95[edge_site_two] = new_flow_95_two;
@@ -247,6 +265,16 @@ public:
                 }
 
                 // 再删除
+
+                // #ifdef _DEBUG
+                //                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one,
+                //                 -1); tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one],
+                //                 new_flow_one, 1); int tmp_flow_95_one = tree[edge_site_one].queryK(0, 0,
+                //                 data.site_bandwidth[edge_site_one], index_95); tree[edge_site_one].update(0, 0,
+                //                 data.site_bandwidth[edge_site_one], old_flow_one, 1); tree[edge_site_one].update(0,
+                //                 0, data.site_bandwidth[edge_site_one], new_flow_one, -1); assert(tmp_flow_95_one ==
+                //                 new_flow_95_one);
+                // #endif
                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
 
@@ -262,7 +290,14 @@ public:
                             tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
                     }
                 }
-
+                // #ifdef _DEBUG
+                // assert(edge_site_flow_94[edge_site_one] ==
+                //        tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94));
+                // assert(edge_site_flow_95[edge_site_one] ==
+                //        tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_95));
+                // assert(edge_site_flow_96[edge_site_one] ==
+                //        tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_96));
+                // #endif
                 flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
                 edge_site_flow_95[edge_site_one] = new_flow_95_one;
