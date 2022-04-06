@@ -112,6 +112,7 @@ public:
             int new_flow_one = old_flow_one - flow;
 
             /* 确定new_flow_95_one值是多少*/
+
             int new_flow_95_one = 0;
             if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
                 new_flow_95_one = new_flow_one;
@@ -151,11 +152,12 @@ public:
                 if (old_flow_two > edge_site_flow_95[edge_site_two]) {
                     new_flow_95_two = edge_site_flow_95[edge_site_two];
                 } else {
-                    if (new_flow_two > edge_site_flow_95[edge_site_two] &&
-                        new_flow_two <= edge_site_flow_96[edge_site_two]) {
+                    if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                        new_flow_95_two = edge_site_flow_96[edge_site_two];
+                    } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
                         new_flow_95_two = new_flow_two;
                     } else {
-                        new_flow_95_two = edge_site_flow_96[edge_site_two];
+                        new_flow_95_two = edge_site_flow_95[edge_site_two];
                     }
                 }
             }
@@ -202,8 +204,7 @@ public:
                     }
                 } else {
                     if (old_flow_two >= edge_site_flow_96[edge_site_two]) {
-                        if (old_flow_two == edge_site_flow_96[edge_site_two] &&
-                            flow_to_m_time_per_eige_site[edge_site_two][edge_site_flow_96[edge_site_two]].size() == 1) {
+                        if (old_flow_two == edge_site_flow_96[edge_site_two]) {
                             edge_site_flow_96[edge_site_two] =
                                 tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
                         }
@@ -229,7 +230,6 @@ public:
                         }
                     }
                 }
-
                 flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
                 edge_site_flow_95[edge_site_two] = new_flow_95_two;
