@@ -22,8 +22,14 @@ class FFD {
 
     double best_cost = (double)LONG_LONG_MAX;
 
+    //[edge_site] = flow_94
+    vector<int> edge_site_flow_94;
+
     //[edge_site] = flow_95
     vector<int> edge_site_flow_95;
+
+    //[edge_site] = flow_96
+    vector<int> edge_site_flow_96;
 
     //[edge_site] = edge_site_tree
     vector<WeightSegmentTree> tree;
@@ -35,7 +41,7 @@ class FFD {
     vector<vector<int>> edge_site_total_stream_per_time;
 
     // [edge_site] = total_stream_per_edge_site
-    vector<int> total_stream_per_edge_site;
+    vector<long long> total_stream_per_edge_site;
 
     // [edge_site] = edge_site_cost
     vector<double> cost_per_edge_site;
@@ -50,7 +56,11 @@ class FFD {
     vector<vector<int>> max_ans_index_per_m_time;
 
     // 从1开始计数的95下标值
+    int index_94;
+
     int index_95;
+
+    int index_96;
 
 public:
     void SA(double T, double dT, double end_T) {
@@ -98,11 +108,21 @@ public:
             int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
 
             /* 拿出后 edge_site_one 花费是多少*/
-            const int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
-            const int new_flow_one = old_flow_one - flow;
-            tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
-            tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
-            const int new_flow_95_one = tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_95);
+            int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
+            int new_flow_one = old_flow_one - flow;
+
+            /* 确定new_flow_95_one值是多少*/
+            int new_flow_95_one = 0;
+            if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
+                new_flow_95_one = new_flow_one;
+            } else {
+                if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                    new_flow_95_one = new_flow_one;
+                } else {
+                    new_flow_95_one = edge_site_flow_94[edge_site_one];
+                }
+            }
+
             double cost_one = 0.0;
             if (total_stream_per_edge_site[edge_site_one] - flow != 0) {
                 if (new_flow_95_one <= data.base_cost) {
@@ -114,12 +134,32 @@ public:
                 }
             }
 
-            /* 放入后后当前edge_site_two 花费是多少*/
+            /* 放入后 edge_site_two 花费是多少*/
             const int old_flow_two = edge_site_total_stream_per_time[m_time][edge_site_two];
             const int new_flow_two = old_flow_two + flow;
-            tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
-            tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
-            const int new_flow_95_two = tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_95);
+
+            /* 确定new_flow_95_two值是多少*/
+            int new_flow_95_two = 0;
+
+            if (data.get_mtime_num() < 20) { // 特殊情况时点小于20
+                if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                    new_flow_95_two = new_flow_two;
+                } else {
+                    new_flow_95_two = edge_site_flow_95[edge_site_two];
+                }
+            } else {
+                if (old_flow_two > edge_site_flow_95[edge_site_two]) {
+                    new_flow_95_two = edge_site_flow_95[edge_site_two];
+                } else {
+                    if (new_flow_two > edge_site_flow_95[edge_site_two] &&
+                        new_flow_two <= edge_site_flow_96[edge_site_two]) {
+                        new_flow_95_two = new_flow_two;
+                    } else {
+                        new_flow_95_two = edge_site_flow_96[edge_site_two];
+                    }
+                }
+            }
+
             double cost_two = 0.0;
             if (new_flow_95_two <= data.base_cost) {
                 cost_two = data.base_cost;
@@ -140,7 +180,56 @@ public:
             }
 
             if (is_acc == true) {
-                // 先删除
+                // 先插入
+                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
+                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
+
+                // 维护94 95 96 的值
+                if (data.get_mtime_num() < 20) { // 特殊情况时点小于20 不需要维护96值
+                    if (old_flow_two == edge_site_flow_95[edge_site_two]) {
+                        edge_site_flow_95[edge_site_two] = new_flow_two;
+                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
+                        if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                            if (data.get_mtime_num() > 1) {
+                                edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
+                            }
+                            edge_site_flow_95[edge_site_two] = new_flow_two;
+                        } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
+                            if (data.get_mtime_num() > 1) {
+                                edge_site_flow_94[edge_site_two] = new_flow_two;
+                            }
+                        }
+                    }
+                } else {
+                    if (old_flow_two >= edge_site_flow_96[edge_site_two]) {
+                        if (old_flow_two == edge_site_flow_96[edge_site_two] &&
+                            flow_to_m_time_per_eige_site[edge_site_two][edge_site_flow_96[edge_site_two]].size() == 1) {
+                            edge_site_flow_96[edge_site_two] =
+                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                        }
+                    } else if (old_flow_two == edge_site_flow_95[edge_site_two]) {
+                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                            edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
+                            edge_site_flow_96[edge_site_two] =
+                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                            edge_site_flow_95[edge_site_two] = new_flow_two;
+                        }
+                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
+                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                            edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
+                            edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
+                            edge_site_flow_96[edge_site_two] =
+                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                            edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
+                            edge_site_flow_95[edge_site_two] = new_flow_two;
+                        } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
+                            edge_site_flow_94[edge_site_two] = new_flow_two;
+                        }
+                    }
+                }
+
                 flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
                 edge_site_flow_95[edge_site_two] = new_flow_95_two;
@@ -157,7 +246,23 @@ public:
                         hollow_ans_index_per_m_time[m_time][edge_site_two].begin());
                 }
 
-                // 再插入
+                // 再删除
+                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
+                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
+
+                // 维护94 95 96 的值
+                if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
+                    edge_site_flow_95[edge_site_one] = new_flow_one;
+                } else {
+                    if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                        edge_site_flow_95[edge_site_one] = new_flow_one;
+                    } else {
+                        edge_site_flow_95[edge_site_one] = edge_site_flow_94[edge_site_one];
+                        edge_site_flow_94[edge_site_one] =
+                            tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
+                    }
+                }
+
                 flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
                 edge_site_flow_95[edge_site_one] = new_flow_95_one;
@@ -172,13 +277,8 @@ public:
                 } else {
                     hollow_ans_index_per_m_time[m_time][edge_site_one].insert(stream_index);
                 }
+
                 now_cost += df;
-            } else {
-                // 回退
-                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, 1);
-                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, -1);
-                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, 1);
-                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, -1);
             }
 #ifdef _DEBUG
             debug << "T: " << T << " cost: " << now_cost << endl;
@@ -207,8 +307,16 @@ public:
         }
     }
 
+    inline int get_k94_order() {
+        return max((data.get_mtime_num() * 19 - 1) / 20 + 1 - 1, 1ul);
+    }
+
     inline int get_k95_order() {
         return (data.get_mtime_num() * 19 - 1) / 20 + 1;
+    }
+
+    inline int get_k96_order() {
+        return min((data.get_mtime_num() * 19 - 1) / 20 + 1 + 1, data.get_mtime_num());
     }
 
     void simple_ffd() {
@@ -220,7 +328,9 @@ public:
 
         best_distribution.assign(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
 
+        edge_site_flow_94.assign(data.get_edge_num(), 0);
         edge_site_flow_95.assign(data.get_edge_num(), 0);
+        edge_site_flow_96.assign(data.get_edge_num(), 0);
 
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
             tree.assign(data.get_edge_num(), WeightSegmentTree(data.site_bandwidth[edge_site]));
@@ -240,7 +350,9 @@ public:
 
         max_ans_index_per_m_time.assign(data.get_mtime_num(), vector<int>(data.get_edge_num()));
 
+        index_94 = get_k94_order();
         index_95 = get_k95_order();
+        index_96 = get_k96_order();
 
         /*更新stream_per_time*/
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
@@ -302,8 +414,16 @@ public:
 
         double total_cost = 0.0;
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+            if (data.get_mtime_num() > 1) {
+                edge_site_flow_94[edge_site] = tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_94);
+            }
+            if (data.get_mtime_num() >= 20) {
+                edge_site_flow_96[edge_site] = tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_96);
+            }
+
             int flow_95 = tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_95);
             edge_site_flow_95[edge_site] = flow_95;
+
             double cost = 0.0;
             if (total_stream_per_edge_site[edge_site] == 0) {
                 cost = 0.0;
