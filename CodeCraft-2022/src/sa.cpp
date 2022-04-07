@@ -3,7 +3,7 @@
  * @Date: 2022-04-06 19:51:47
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-07 14:34:34
+ * @LastEditTime: 2022-04-07 15:05:23
  * @FilePath: /FDO/CodeCraft-2022/src/sa.cpp
  */
 #ifndef _SA_
@@ -82,7 +82,83 @@ private:
         return cost;
     }
 
-    // 执行模拟退货的算法
+    /* 执行一遍简单的FFD来获取一个初始状态 */
+    void simple_ffd()
+    {
+        // 使用轮询算法尽量平均地初始化
+        deque<int> edge_order;
+        for (size_t i = 0; i < data.get_edge_num(); ++i)
+            edge_order.push_back(i);
+
+        for (size_t mtime = 0; mtime < data.get_mtime_num(); ++mtime)
+        {
+            for (const auto &stream : this->stream_per_mtime[mtime])
+            {
+                for (auto edge_site : edge_order)
+                {
+                    if (this->is_connect(stream.customer_site, edge_site)
+                        and edge_site_total_stream_per_time[mtime][edge_site] + stream.flow
+                            <= data.site_bandwidth[edge_site])
+                    {
+                        edge_site_total_stream_per_time[mtime][edge_site] += stream.flow;
+                        total_stream_per_edge_site[edge_site] += stream.flow;
+                        ans[mtime][edge_site].push_back(stream);
+                        best_distribution[mtime][stream.customer_site].emplace_back(edge_site, stream.stream_type);
+                        break;
+                    }
+                }
+            }
+            // 进行轮询
+            edge_order.push_back(edge_order.front());
+            edge_order.pop_front();
+        }
+
+        /* 维护大量用户优化速度的成员变量 */
+        // 线段树与ans同步
+        for (size_t mtime = 0; mtime < data.get_mtime_num(); ++mtime)
+        {
+            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+            {
+                this->flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[mtime][edge_site]].insert(
+                    mtime);
+                this->tree[edge_site].update(this->edge_site_total_stream_per_time[mtime][edge_site], 1);
+            }
+        }
+
+        // cost等值同步
+        double total_cost = 0.0;
+        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+        {
+            // mtime > 1 才需要计算94
+            if (data.get_mtime_num() > 1)
+                this->specific_flow[edge_site]._94 = tree[edge_site].queryK(this->specific_index._94);
+            // mtime > 20 才需要计算96
+            if (data.get_mtime_num() > 20)
+                this->specific_flow[edge_site]._96 = tree[edge_site].queryK(this->specific_index._96);
+            // 计算95 cost
+            int flow_95 = tree[edge_site].queryK(this->specific_index._95);
+            this->specific_flow[edge_site]._95 = flow_95;
+
+            // 计算单个节点的cost, 累加到total_cost中
+            double cost = 0.0;
+            if (this->total_stream_per_edge_site[edge_site] == 0)
+                cost = 0.0;
+            else
+                cost = this->cal_95flow_cost(flow_95, edge_site);
+
+            // 累计cost并维护
+            this->cost_per_edge_site[edge_site] = cost;
+            total_cost += cost;
+        }
+        this->best_cost = total_cost;
+
+        cout << "init cost: " << total_cost << endl;
+        cout << "init over" << endl;
+        return;
+    }
+
+
+    /* 执行模拟退火的算法 */
     void excute_sa(double T, double dT, double end_T)
     {
         double now_cost = this->best_cost;
@@ -118,10 +194,10 @@ private:
             for (auto edge_site : this->customer_valid_edge_site[stream.customer_site])
             {
                 if (this->edge_site_total_stream_per_time[mtime][edge_site] + stream.flow
-                    <= this->data.site_bandwidth[edge_site])
+                        <= this->data.site_bandwidth[edge_site]
+                    and edge_site != site_from.site)
                 {
-                    if (edge_site != site_from.site)
-                        valid_site.push_back(edge_site);
+                    valid_site.push_back(edge_site);
                 }
             }
             if (valid_site.empty())
@@ -135,19 +211,18 @@ private:
 
             /*计算拿出edge_sitge_from以后的95值和花费*/
             site_from.old_flow = this->edge_site_total_stream_per_time[mtime][site_from.site];
+            site_from.new_flow = 0;
             // 确认edge_site_from新的95值，注意edge_site_from的流量是减少的
-            site_from.new_flow_95 = 0;
-
             if (data.get_customer_num() == 1)    // 只有一个时间点的特殊情况
                 site_from.new_flow_95 = site_from.new_flow;
             else
             {
-
                 if (site_from.new_flow >= this->specific_flow[site_from.site]._94)    // 新flow>=94值，则新95是新flow
                     site_from.new_flow_95 = site_from.new_flow;
                 else    // 否则，新95是原94值
                     site_from.new_flow_95 = this->specific_flow[site_from.site]._94;
             }
+
             // 计算拿出edge_site_from以后的花费：拿完仍有流量使用公式计算，否则直为0
             if (this->total_stream_per_edge_site[site_from.site] - stream.flow > 0)
                 site_from.new_cost = this->cal_95flow_cost(site_from.new_flow_95, site_from.site);
@@ -171,7 +246,6 @@ private:
             }
             else    // 同时考虑94、95、96
             {
-
                 // 旧流量>95，则新95不变
                 if (site_to.old_flow > this->specific_flow[site_to.site]._95)
                     site_to.new_flow_95 = this->specific_flow[site_to.site]._95;
@@ -371,7 +445,7 @@ public:
 
         /* 预分配成员变量的空间，并完成一定的初始化 */
         // 结果的初始化
-        this->best_distribution.assign(data.get_mtime_num(), Distribution_t(data.get_edge_num()));
+        this->best_distribution.assign(data.get_mtime_num(), Distribution_t(data.get_customer_num()));
         this->best_cost = 1e10;
 
         // 初始化stream_per_time
@@ -429,79 +503,11 @@ public:
         this->ans.assign(data.get_mtime_num(), vector<vector<Stream>>(data.get_edge_num()));
     };
 
-    /* 执行一遍简单的FFD来获取一个初始状态 */
-    void simple_ffd()
+    Distribution excute()
     {
-        // 使用轮询算法尽量平均地初始化
-        deque<int> edge_order;
-        for (size_t i = 0; i < data.get_edge_num(); ++i)
-            edge_order.push_back(i);
-
-        for (size_t mtime = 0; mtime < data.get_mtime_num(); ++mtime)
-        {
-            for (const auto &stream : this->stream_per_mtime[mtime])
-            {
-                for (auto edge_site : edge_order)
-                {
-                    if (this->is_connect(stream.customer_site, edge_site)
-                        and edge_site_total_stream_per_time[mtime][edge_site] + stream.flow
-                            <= data.site_bandwidth[edge_site])
-                    {
-                        edge_site_total_stream_per_time[mtime][edge_site] += stream.flow;
-                        total_stream_per_edge_site[edge_site] += stream.flow;
-                        ans[mtime][edge_site].push_back(stream);
-                        best_distribution[mtime][stream.customer_site].emplace_back(edge_site, stream.stream_type);
-                        break;
-                    }
-                }
-            }
-            // 进行轮询
-            edge_order.push_back(edge_order.front());
-            edge_order.pop_front();
-        }
-
-        /* 维护大量用户优化速度的成员变量 */
-        // 线段树与ans同步
-        for (size_t mtime = 0; mtime < data.get_mtime_num(); ++mtime)
-        {
-            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
-            {
-                this->flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[mtime][edge_site]].insert(
-                    mtime);
-                this->tree[edge_site].update(this->edge_site_total_stream_per_time[mtime][edge_site], 1);
-            }
-        }
-
-        // cost等值同步
-        double total_cost = 0.0;
-        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
-        {
-            // mtime > 1 才需要计算94
-            if (data.get_mtime_num() > 1)
-                this->specific_flow[edge_site]._94 = tree[edge_site].queryK(this->specific_index._94);
-            // mtime > 20 才需要计算96
-            if (data.get_mtime_num() > 20)
-                this->specific_flow[edge_site]._96 = tree[edge_site].queryK(this->specific_index._96);
-            // 计算95 cost
-            int flow_95 = tree[edge_site].queryK(this->specific_index._95);
-            this->specific_flow[edge_site]._95 = flow_95;
-
-            // 计算单个节点的cost, 累加到total_cost中
-            double cost = 0.0;
-            if (this->total_stream_per_edge_site[edge_site] == 0)
-                cost = 0.0;
-            else
-                cost = this->cal_95flow_cost(flow_95, edge_site);
-
-            // 累计cost并维护
-            this->cost_per_edge_site[edge_site] = cost;
-            total_cost += cost;
-        }
-        this->best_cost = total_cost;
-
-        cout << "init cost: " << total_cost << endl;
-        cout << "init over" << endl;
-        return;
+        this->simple_ffd();
+        this->excute_sa(1e12, 0.9999994, 1e2);
+        return this->best_distribution;
     }
 }
 
