@@ -3,7 +3,7 @@
  * @Date: 2022-04-06 19:51:47
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-07 15:05:23
+ * @LastEditTime: 2022-04-07 15:37:34
  * @FilePath: /FDO/CodeCraft-2022/src/sa.cpp
  */
 #ifndef _SA_
@@ -62,10 +62,8 @@ private:
     // [edge_site] = edge_site_cost
     vector<double> cost_per_edge_site;
 
-    /* ans */
-    /* 三个量的index互相同步 */
-    // [m_time][edge_site][...(index)]  = stream
-    vector<vector<vector<Stream>>> ans;    // 最终的分配答案
+    // 最终的分配答案 [m_time][edge_site][...(index)]  = stream
+    vector<vector<vector<Stream>>> ans;
 
     /* 一些工具函数 */
     // 判断是否联通
@@ -132,8 +130,8 @@ private:
             // mtime > 1 才需要计算94
             if (data.get_mtime_num() > 1)
                 this->specific_flow[edge_site]._94 = tree[edge_site].queryK(this->specific_index._94);
-            // mtime > 20 才需要计算96
-            if (data.get_mtime_num() > 20)
+            // mtime >= 20 才需要计算96
+            if (data.get_mtime_num() >= 20)
                 this->specific_flow[edge_site]._96 = tree[edge_site].queryK(this->specific_index._96);
             // 计算95 cost
             int flow_95 = tree[edge_site].queryK(this->specific_index._95);
