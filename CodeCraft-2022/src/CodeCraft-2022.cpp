@@ -6,7 +6,7 @@
 #include "config.h"
 #include "data.h"
 #include "ffd.cpp"
-#include "sa.cpp"
+#include "sa.h"
 #include <iostream>
 int main()
 {
