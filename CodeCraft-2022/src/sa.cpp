@@ -411,6 +411,7 @@ private:
                 // 累加cost
                 now_cost += diff;
             }
+            T = T * dT;    //降温
         }
 
 
