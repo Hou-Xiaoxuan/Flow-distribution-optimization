@@ -13,17 +13,17 @@ int main()
     std::cout << INPUT << std::endl;
     Data data = read_file();
 
-    SOLVE_SA SA(data);
+    // 实现功能
+        SOLVE_SA SA(data);
+        Distribution distribution = SA.excute();
+    #ifdef _DEBUG
+        check_distribution(data, distribution);
+        debug << cal_cost(data, distribution) << endl;
+    #endif
+        output_distribution(data, distribution);
 
-    // // 实现功能
     // FFD ffd(data);
     // Distribution distribution = ffd.excute();
-
-    // // #ifdef _DEBUG
-    // //     check_distribution(data, distribution);
-    // //     debug << cal_cost(data, distribution) << endl;
-    // // #endif
-
     // output_distribution(data, distribution);
     return 0;
 }

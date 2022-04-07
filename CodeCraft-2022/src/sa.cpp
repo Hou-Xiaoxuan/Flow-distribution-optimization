@@ -3,7 +3,7 @@
  * @Date: 2022-04-06 19:51:47
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-07 15:37:34
+ * @LastEditTime: 2022-04-07 21:22:49
  * @FilePath: /FDO/CodeCraft-2022/src/sa.cpp
  */
 #ifndef _SA_
@@ -152,6 +152,7 @@ private:
 
         cout << "init cost: " << total_cost << endl;
         cout << "init over" << endl;
+
         return;
     }
 
@@ -160,15 +161,15 @@ private:
     void excute_sa(double T, double dT, double end_T)
     {
         double now_cost = this->best_cost;
+        struct {
+            int site;            // 边缘点
+            int old_flow;        // 原来的流量
+            int new_flow;        // 新的流量
+            int new_flow_95;     // 新的95值
+            double new_cost;     // 新的cost
+        } site_from, site_to;    // 变化的两个点，流量从from移动到to
         while (T > end_T)
         {
-            struct {
-                int site;            // 边缘点
-                int old_flow;        // 原来的流量
-                int new_flow;        // 新的流量
-                int new_flow_95;     // 新的95值
-                double new_cost;     // 新的cost
-            } site_from, site_to;    // 变化的两个点，流量从from移动到to
 
             // 随机选取合法的edge_site_from，最多执行edge_nume次。仍然找不到则降温
             site_from.site = rand() % data.get_edge_num();
@@ -221,7 +222,7 @@ private:
                     site_from.new_flow_95 = this->specific_flow[site_from.site]._94;
             }
 
-            // 计算拿出edge_site_from以后的花费：拿完仍有流量使用公式计算，否则直为0
+            // 计算拿出edge_site_from以后的花费：拿完仍有流量使用公式计算，否则值为0
             if (this->total_stream_per_edge_site[site_from.site] - stream.flow > 0)
                 site_from.new_cost = this->cal_95flow_cost(site_from.new_flow_95, site_from.site);
             else
@@ -411,6 +412,10 @@ private:
                 // 累加cost
                 now_cost += diff;
             }
+#ifdef _DEBUG
+            debug << "T: " << T << " cost: " << now_cost << endl;
+#endif
+
             T = T * dT;    //降温
         }
 
@@ -508,6 +513,7 @@ public:
     {
         this->simple_ffd();
         this->excute_sa(1e12, 0.9999994, 1e2);
+        this->excute_sa(1e5, 0.99999, 1e-14);
         return this->best_distribution;
     }
 }
