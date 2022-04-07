@@ -14,7 +14,10 @@ using namespace std;
 class FFD {
     const Data data;
 
-    //[m_time][...] <<stream>, <stream_type, customer_site>>
+    /*
+    将同一个时刻的储存在同一维度中, 方便存取
+    [m_time][...] <<stream>, <stream_type, customer_site>>
+    */
     vector<vector<pair<int, pair<int, int>>>> stream_per_time;
 
     //[mtime][customer][...] = <edge_site, stream_type>
@@ -35,7 +38,7 @@ class FFD {
     vector<WeightSegmentTree> tree;
 
     // [edge_site][flow][...] = m_time
-    vector<vector<unordered_set<int>>> flow_to_m_time_per_eige_site;
+    vector<vector<set<int>>> flow_to_m_time_per_eige_site;
 
     //[m_time][edge_site] = total_flow_per_edge_site_per_time
     vector<vector<int>> edge_site_total_stream_per_time;
@@ -47,13 +50,7 @@ class FFD {
     vector<double> cost_per_edge_site;
 
     // [m_time][edge_site][...] <stream, <stream_type, customer_site>>
-    vector<vector<unordered_map<int, pair<int, pair<int, int>>>>> ans;
-
-    // [m_time][edge_site][...] = hollow_ans_index
-    vector<vector<unordered_set<int>>> hollow_ans_index_per_m_time;
-
-    // [m_time][edge_site] = max_ans_index
-    vector<vector<int>> max_ans_index_per_m_time;
+    vector<vector<vector<pair<int, pair<int, int>>>>> ans;
 
     // 从1开始计数的95下标值
     int index_94;
@@ -75,20 +72,15 @@ public:
             int edge_site_one = rand() % data.get_edge_num();
 
             if (edge_site_flow_95[edge_site_one] == 0) {
-                continue; // 说明95值时没有flow
+                T = T * dT; //降温
+                continue;   // 说明95值时没有flow
             }
 
             /*选择edge_site_one 95值的时点*/
             int m_time = *flow_to_m_time_per_eige_site[edge_site_one][edge_site_flow_95[edge_site_one]].begin();
 
             /*随机选择stream*/
-            int stream_index;
-            do {
-                stream_index = rand() % max_ans_index_per_m_time[m_time][edge_site_one];
-            } while (hollow_ans_index_per_m_time[m_time][edge_site_one].count(stream_index) !=
-                     0); // 下标在remaining_ans_index中就不会在ans中
-
-            const auto &stream = ans[m_time][edge_site_one][stream_index];
+            auto &stream = ans[m_time][edge_site_one][rand() % ans[m_time][edge_site_one].size()];
             const int flow = stream.first;
             const int customer_site = stream.second.second;
 
@@ -103,6 +95,7 @@ public:
                 }
             }
             if (valid_edge_site.empty() == true) {
+                T = T * dT; //降温
                 continue;
             }
             int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
@@ -182,16 +175,6 @@ public:
             }
 
             if (is_acc == true) {
-                // #ifdef _DEBUG
-                //                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two,
-                //                 -1); tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two],
-                //                 new_flow_two, 1); int tmp_flow_95_two = tree[edge_site_two].queryK(0, 0,
-                //                 data.site_bandwidth[edge_site_two], index_95); tree[edge_site_two].update(0, 0,
-                //                 data.site_bandwidth[edge_site_two], old_flow_two, 1); tree[edge_site_two].update(0,
-                //                 0, data.site_bandwidth[edge_site_two], new_flow_two, -1); assert(tmp_flow_95_two ==
-                //                 new_flow_95_two);
-                // #endif
-
                 // 先插入
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
@@ -240,41 +223,16 @@ public:
                         }
                     }
                 }
-                // #ifdef _DEBUG
-                // assert(edge_site_flow_94[edge_site_two] ==
-                //        tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_94));
-                // assert(edge_site_flow_95[edge_site_two] ==
-                //        tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_95));
-                // assert(edge_site_flow_96[edge_site_two] ==
-                //        tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96));
-                // #endif
+
                 flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
                 flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].insert(m_time);
                 edge_site_flow_95[edge_site_two] = new_flow_95_two;
                 edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
                 total_stream_per_edge_site[edge_site_two] += flow;
                 cost_per_edge_site[edge_site_two] = cost_two;
-                if (hollow_ans_index_per_m_time[m_time][edge_site_two].empty()) {
-                    ans[m_time][edge_site_two][max_ans_index_per_m_time[m_time][edge_site_two]] = stream;
-                    ++max_ans_index_per_m_time[m_time][edge_site_two];
-                } else {
-                    int new_stream_index = *hollow_ans_index_per_m_time[m_time][edge_site_two].begin();
-                    ans[m_time][edge_site_two][new_stream_index] = stream;
-                    hollow_ans_index_per_m_time[m_time][edge_site_two].erase(
-                        hollow_ans_index_per_m_time[m_time][edge_site_two].begin());
-                }
+                ans[m_time][edge_site_two].push_back(stream);
 
                 // 再删除
-
-                // #ifdef _DEBUG
-                //                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one,
-                //                 -1); tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one],
-                //                 new_flow_one, 1); int tmp_flow_95_one = tree[edge_site_one].queryK(0, 0,
-                //                 data.site_bandwidth[edge_site_one], index_95); tree[edge_site_one].update(0, 0,
-                //                 data.site_bandwidth[edge_site_one], old_flow_one, 1); tree[edge_site_one].update(0,
-                //                 0, data.site_bandwidth[edge_site_one], new_flow_one, -1); assert(tmp_flow_95_one ==
-                //                 new_flow_95_one);
-                // #endif
                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
 
@@ -290,28 +248,15 @@ public:
                             tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
                     }
                 }
-                // #ifdef _DEBUG
-                // assert(edge_site_flow_94[edge_site_one] ==
-                //        tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94));
-                // assert(edge_site_flow_95[edge_site_one] ==
-                //        tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_95));
-                // assert(edge_site_flow_96[edge_site_one] ==
-                //        tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_96));
-                // #endif
-                flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(m_time);
+                flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(
+                    flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].begin());
                 flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].insert(m_time);
                 edge_site_flow_95[edge_site_one] = new_flow_95_one;
                 edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
                 total_stream_per_edge_site[edge_site_one] -= flow;
                 cost_per_edge_site[edge_site_one] = cost_one;
-                ans[m_time][edge_site_one].erase(stream_index);
-                if (stream_index == max_ans_index_per_m_time[m_time][edge_site_one] - 1) {
-                    --max_ans_index_per_m_time[m_time][edge_site_one];
-                    hollow_ans_index_per_m_time[m_time][edge_site_one].erase(
-                        max_ans_index_per_m_time[m_time][edge_site_one]); // 如果存在就应该删除
-                } else {
-                    hollow_ans_index_per_m_time[m_time][edge_site_one].insert(stream_index);
-                }
+                swap(stream, ans[m_time][edge_site_one].back());
+                ans[m_time][edge_site_one].pop_back();
 
                 now_cost += df;
             }
@@ -329,8 +274,7 @@ public:
             Distribution distribution(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
             for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
                 for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                    for (const auto &stream_with_key : ans[m_time][edge_site]) {
-                        const auto &stream = stream_with_key.second;
+                    for (const auto &stream : ans[m_time][edge_site]) {
                         int customer_site = stream.second.second;
                         int stream_type = stream.second.first;
                         distribution[m_time][customer_site].push_back({edge_site, stream_type});
@@ -370,20 +314,16 @@ public:
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
             tree.assign(data.get_edge_num(), WeightSegmentTree(data.site_bandwidth[edge_site]));
             flow_to_m_time_per_eige_site.assign(data.get_edge_num(),
-                                                vector<unordered_set<int>>(data.site_bandwidth[edge_site] + 1));
+                                                vector<set<int>>(data.site_bandwidth[edge_site] + 1));
         }
 
         edge_site_total_stream_per_time.assign(data.get_mtime_num(), vector<int>(data.get_edge_num()));
 
         cost_per_edge_site.assign(data.get_edge_num(), 0);
 
-        ans.assign(data.get_mtime_num(), vector<unordered_map<int, pair<int, pair<int, int>>>>(data.get_edge_num()));
+        ans.assign(data.get_mtime_num(), vector<vector<pair<int, pair<int, int>>>>(data.get_edge_num()));
 
         total_stream_per_edge_site.assign(data.get_edge_num(), 0);
-
-        hollow_ans_index_per_m_time.assign(data.get_mtime_num(), vector<unordered_set<int>>(data.get_edge_num()));
-
-        max_ans_index_per_m_time.assign(data.get_mtime_num(), vector<int>(data.get_edge_num()));
 
         index_94 = get_k94_order();
         index_95 = get_k95_order();
@@ -405,6 +345,10 @@ public:
             }
             stream_now_time.shrink_to_fit();
             sort(stream_now_time.begin(), stream_now_time.end(), greater<pair<int, pair<int, int>>>());
+            // 预分配ans 空间
+            // for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+            //     ans[m_time][edge_site].reserve(stream_now_time.size() / 4);
+            // }
         }
 
         /*使用ffd算法获得一组解*/
@@ -427,8 +371,7 @@ public:
                         if (data.qos[customer_site][edge_site] < data.qos_constraint) { // qos 限制
                             edge_site_total_stream_per_time[m_time][edge_site] += flow;
                             total_stream_per_edge_site[edge_site] += flow;
-                            ans[m_time][edge_site][ans[m_time][edge_site].size()] = {flow,
-                                                                                     {stream_type, customer_site}};
+                            ans[m_time][edge_site].push_back({flow, {stream_type, customer_site}});
                             best_distribution[m_time][customer_site].push_back({edge_site, stream_type});
                             break;
                         }
@@ -439,7 +382,6 @@ public:
 
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
             for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                max_ans_index_per_m_time[m_time][edge_site] = ans[m_time][edge_site].size();
                 flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[m_time][edge_site]].insert(
                     m_time);
                 tree[edge_site].update(0, 0, data.site_bandwidth[edge_site],
@@ -481,6 +423,7 @@ public:
 
     Distribution excute() {
         simple_ffd();
+        // SA(1e6, 0.99999, 1e-3);
         SA(1e12, 0.9999994, 1e2);
         SA(1e5, 0.99999, 1e-14);
         return best_distribution;
