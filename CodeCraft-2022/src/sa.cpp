@@ -374,6 +374,8 @@ private:
 
 
                 /* 再删除 */
+                this->tree[site_from.site].update(site_from.old_flow, -1);
+                this->tree[site_from.site].update(site_from.new_flow, 1);
                 // 维护94、95、96的值（site_from的old flow一定是95值）
                 if (data.get_mtime_num() == 1)
                     this->specific_flow[site_from.site]._95 = site_from.new_flow;
