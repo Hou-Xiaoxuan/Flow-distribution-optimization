@@ -25,6 +25,9 @@ class FFD {
 
     double best_cost = (double)LONG_LONG_MAX;
 
+    //[customer_site][...] = [qos_valid_edge_site]
+    vector<vector<int>> customer_to_edge_qos_valid;
+
     //[edge_site] = flow_94
     vector<int> edge_site_flow_94;
 
@@ -87,9 +90,8 @@ public:
             /*随机选择edge_site_two*/
             // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
             valid_edge_site.resize(0);
-            for (int edge_site = 0; edge_site < (int)data.get_edge_num(); ++edge_site) {
-                if (data.qos[customer_site][edge_site] < data.qos_constraint &&
-                    edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site] &&
+            for (auto edge_site : customer_to_edge_qos_valid[customer_site]) {
+                if (edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site] &&
                     edge_site != edge_site_one) {
                     valid_edge_site.push_back(edge_site);
                 }
@@ -307,6 +309,8 @@ public:
 
         best_distribution.assign(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
 
+        customer_to_edge_qos_valid.assign(data.get_customer_num(), vector<int>());
+
         edge_site_flow_94.assign(data.get_edge_num(), 0);
         edge_site_flow_95.assign(data.get_edge_num(), 0);
         edge_site_flow_96.assign(data.get_edge_num(), 0);
@@ -345,23 +349,28 @@ public:
             }
             stream_now_time.shrink_to_fit();
             sort(stream_now_time.begin(), stream_now_time.end(), greater<pair<int, pair<int, int>>>());
-            // 预分配ans 空间
+            // 预分配ans 空间 //会炸空间
             // for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
             //     ans[m_time][edge_site].reserve(stream_now_time.size() / 4);
             // }
         }
 
+        for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
+            customer_to_edge_qos_valid[customer_site].reserve(data.get_edge_num());
+            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+                if (data.qos[customer_site][edge_site] < data.qos_constraint) {
+                    customer_to_edge_qos_valid[customer_site].push_back(edge_site);
+                }
+            }
+            customer_to_edge_qos_valid.shrink_to_fit();
+        }
+
         /*使用ffd算法获得一组解*/
-        vector<int> edge_order(data.get_edge_num());
+        list<int> edge_order;
+        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+            edge_order.push_back(edge_site);
+        }
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            // 决定每轮遍历的顺序
-            edge_order.resize(0);
-            for (size_t edge_site = m_time % data.get_edge_num(); edge_site < data.get_edge_num(); ++edge_site) {
-                edge_order.push_back(edge_site);
-            }
-            for (size_t edge_site = 0; edge_site < m_time % data.get_edge_num(); ++edge_site) {
-                edge_order.push_back(edge_site);
-            }
             for (const auto &stream : stream_per_time[m_time]) {
                 const int flow = stream.first;
                 const int stream_type = stream.second.first;
@@ -378,6 +387,9 @@ public:
                     }
                 }
             }
+            // 改变edge_site 的顺序
+            edge_order.push_back(edge_order.front());
+            edge_order.pop_front();
         }
 
         for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
@@ -424,6 +436,8 @@ public:
     Distribution excute() {
         simple_ffd();
         // SA(1e6, 0.99999, 1e-3);
+        SA(1e12, 0.9999994, 1e2);
+        SA(1e5, 0.99999, 1e-14);
         SA(1e12, 0.9999994, 1e2);
         SA(1e5, 0.99999, 1e-14);
         return best_distribution;
