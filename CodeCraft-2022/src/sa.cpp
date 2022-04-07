@@ -209,7 +209,7 @@ private:
 
             /*计算拿出edge_sitge_from以后的95值和花费*/
             site_from.old_flow = this->edge_site_total_stream_per_time[mtime][site_from.site];
-            site_from.new_flow = 0;
+            site_from.new_flow = site_from.old_flow - stream.flow;
             // 确认edge_site_from新的95值，注意edge_site_from的流量是减少的
             if (data.get_customer_num() == 1)    // 只有一个时间点的特殊情况
                 site_from.new_flow_95 = site_from.new_flow;
