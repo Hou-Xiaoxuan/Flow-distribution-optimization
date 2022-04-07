@@ -1,27 +1,29 @@
 /*
  * @Author: xv_rong
  * @Date: 2022-03-31 20:44:44
- * @LastEditors: xv_rong
+ * @LastEditors: LinXuan
  */
 #include "config.h"
 #include "data.h"
 #include "ffd.cpp"
+#include "sa.cpp"
 #include <iostream>
-int main() {
+int main()
+{
     std::cout << INPUT << std::endl;
     Data data = read_file();
 
-    // 实现功能
-    FFD ffd(data);
-    Distribution distribution = ffd.excute();
+    SOLVE_SA SA(data);
 
-#ifdef _DEBUG
-    check_distribution(data, distribution);
-    // debug << cal_cost(data, distribution) << endl;
-#endif
+    // // 实现功能
+    // FFD ffd(data);
+    // Distribution distribution = ffd.excute();
 
-    output_distribution(data, distribution);
+    // // #ifdef _DEBUG
+    // //     check_distribution(data, distribution);
+    // //     debug << cal_cost(data, distribution) << endl;
+    // // #endif
 
-    std::cout << "over" << std::endl;
+    // output_distribution(data, distribution);
     return 0;
 }

@@ -1,7 +1,7 @@
 /*
  * @Author: xv_rong
  * @Date: 2022-03-31 19:42:58
- * @LastEditors: xv_rong
+ * @LastEditors: LinXuan
  */
 #ifndef __FFD__
 #define __FFD__
@@ -11,7 +11,8 @@
 #include <bits/stdc++.h>
 
 using namespace std;
-class FFD {
+class FFD
+{
     const Data data;
 
     /*
@@ -60,20 +61,23 @@ class FFD {
     int index_96;
 
 public:
-    void SA(double T, double dT, double end_T) {
+    void SA(double T, double dT, double end_T)
+    {
         double now_cost = best_cost;
 
         vector<int> valid_edge_site;
         valid_edge_site.reserve(data.get_edge_num());
-        while (T > end_T) {
+        while (T > end_T)
+        {
             // 注意%0错误
 
             /*随机选择 edge_site_one*/
             int edge_site_one = rand() % data.get_edge_num();
 
-            if (edge_site_flow_95[edge_site_one] == 0) {
-                T = T * dT; //降温
-                continue;   // 说明95值时没有flow
+            if (edge_site_flow_95[edge_site_one] == 0)
+            {
+                T = T * dT;    //降温
+                continue;      // 说明95值时没有flow
             }
 
             /*选择edge_site_one 95值的时点*/
@@ -87,15 +91,18 @@ public:
             /*随机选择edge_site_two*/
             // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
             valid_edge_site.resize(0);
-            for (int edge_site = 0; edge_site < (int)data.get_edge_num(); ++edge_site) {
-                if (data.qos[customer_site][edge_site] < data.qos_constraint &&
-                    edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site] &&
-                    edge_site != edge_site_one) {
+            for (int edge_site = 0; edge_site < (int)data.get_edge_num(); ++edge_site)
+            {
+                if (data.qos[customer_site][edge_site] < data.qos_constraint
+                    && edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site]
+                    && edge_site != edge_site_one)
+                {
                     valid_edge_site.push_back(edge_site);
                 }
             }
-            if (valid_edge_site.empty() == true) {
-                T = T * dT; //降温
+            if (valid_edge_site.empty() == true)
+            {
+                T = T * dT;    //降温
                 continue;
             }
             int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
@@ -107,24 +114,31 @@ public:
             /* 确定new_flow_95_one值是多少*/
 
             int new_flow_95_one = 0;
-            if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
+            if (data.get_mtime_num() == 1)
+            {    // 特殊情况只有一个时点
                 new_flow_95_one = new_flow_one;
-            } else {
-                if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+            } else
+            {
+                if (new_flow_one >= edge_site_flow_94[edge_site_one])
+                {
                     new_flow_95_one = new_flow_one;
-                } else {
+                } else
+                {
                     new_flow_95_one = edge_site_flow_94[edge_site_one];
                 }
             }
 
             double cost_one = 0.0;
-            if (total_stream_per_edge_site[edge_site_one] - flow != 0) {
-                if (new_flow_95_one <= data.base_cost) {
+            if (total_stream_per_edge_site[edge_site_one] - flow != 0)
+            {
+                if (new_flow_95_one <= data.base_cost)
+                {
                     cost_one = data.base_cost;
-                } else {
-                    cost_one = 1.0 * (new_flow_95_one - data.base_cost) * (new_flow_95_one - data.base_cost) /
-                                   data.site_bandwidth[edge_site_one] +
-                               new_flow_95_one;
+                } else
+                {
+                    cost_one = 1.0 * (new_flow_95_one - data.base_cost) * (new_flow_95_one - data.base_cost)
+                            / data.site_bandwidth[edge_site_one]
+                        + new_flow_95_one;
                 }
             }
 
@@ -135,90 +149,121 @@ public:
             /* 确定new_flow_95_two值是多少*/
             int new_flow_95_two = 0;
 
-            if (data.get_mtime_num() < 20) { // 特殊情况时点小于20
-                if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+            if (data.get_mtime_num() < 20)
+            {    // 特殊情况时点小于20
+                if (new_flow_two > edge_site_flow_95[edge_site_two])
+                {
                     new_flow_95_two = new_flow_two;
-                } else {
+                } else
+                {
                     new_flow_95_two = edge_site_flow_95[edge_site_two];
                 }
-            } else {
-                if (old_flow_two > edge_site_flow_95[edge_site_two]) {
+            } else
+            {
+                if (old_flow_two > edge_site_flow_95[edge_site_two])
+                {
                     new_flow_95_two = edge_site_flow_95[edge_site_two];
-                } else {
-                    if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                } else
+                {
+                    if (new_flow_two > edge_site_flow_96[edge_site_two])
+                    {
                         new_flow_95_two = edge_site_flow_96[edge_site_two];
-                    } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                    } else if (new_flow_two > edge_site_flow_95[edge_site_two])
+                    {
                         new_flow_95_two = new_flow_two;
-                    } else {
+                    } else
+                    {
                         new_flow_95_two = edge_site_flow_95[edge_site_two];
                     }
                 }
             }
 
             double cost_two = 0.0;
-            if (new_flow_95_two <= data.base_cost) {
+            if (new_flow_95_two <= data.base_cost)
+            {
                 cost_two = data.base_cost;
-            } else {
-                cost_two = 1.0 * (new_flow_95_two - data.base_cost) * (new_flow_95_two - data.base_cost) /
-                               data.site_bandwidth[edge_site_two] +
-                           new_flow_95_two;
+            } else
+            {
+                cost_two = 1.0 * (new_flow_95_two - data.base_cost) * (new_flow_95_two - data.base_cost)
+                        / data.site_bandwidth[edge_site_two]
+                    + new_flow_95_two;
             }
 
             /*考虑是否接受更新*/
             int is_acc = false;
-            const double df =
-                (cost_one + cost_two) - (cost_per_edge_site[edge_site_one] + cost_per_edge_site[edge_site_two]);
-            if (df < 0.0) {
+            const double df
+                = (cost_one + cost_two) - (cost_per_edge_site[edge_site_one] + cost_per_edge_site[edge_site_two]);
+            if (df < 0.0)
+            {
                 is_acc = true;
-            } else if (exp(-df / T) * RAND_MAX > rand()) {
+            } else if (exp(-df / T) * RAND_MAX > rand())
+            {
                 is_acc = true;
             }
 
-            if (is_acc == true) {
+            if (is_acc == true)
+            {
                 // 先插入
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
                 tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
 
                 // 维护94 95 96 的值
-                if (data.get_mtime_num() < 20) { // 特殊情况时点小于20 不需要维护96值
-                    if (old_flow_two == edge_site_flow_95[edge_site_two]) {
+                if (data.get_mtime_num() < 20)
+                {    // 特殊情况时点小于20 不需要维护96值
+                    if (old_flow_two == edge_site_flow_95[edge_site_two])
+                    {
                         edge_site_flow_95[edge_site_two] = new_flow_two;
-                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
-                        if (new_flow_two > edge_site_flow_95[edge_site_two]) {
-                            if (data.get_mtime_num() > 1) {
+                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two])
+                    {
+                        if (new_flow_two > edge_site_flow_95[edge_site_two])
+                        {
+                            if (data.get_mtime_num() > 1)
+                            {
                                 edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
                             }
                             edge_site_flow_95[edge_site_two] = new_flow_two;
-                        } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
-                            if (data.get_mtime_num() > 1) {
+                        } else if (new_flow_two > edge_site_flow_94[edge_site_two])
+                        {
+                            if (data.get_mtime_num() > 1)
+                            {
                                 edge_site_flow_94[edge_site_two] = new_flow_two;
                             }
                         }
                     }
-                } else {
-                    if (old_flow_two >= edge_site_flow_96[edge_site_two]) {
-                        if (old_flow_two == edge_site_flow_96[edge_site_two]) {
-                            edge_site_flow_96[edge_site_two] =
-                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                } else
+                {
+                    if (old_flow_two >= edge_site_flow_96[edge_site_two])
+                    {
+                        if (old_flow_two == edge_site_flow_96[edge_site_two])
+                        {
+                            edge_site_flow_96[edge_site_two]
+                                = tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
                         }
-                    } else if (old_flow_two == edge_site_flow_95[edge_site_two]) {
-                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                    } else if (old_flow_two == edge_site_flow_95[edge_site_two])
+                    {
+                        if (new_flow_two > edge_site_flow_96[edge_site_two])
+                        {
                             edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
-                            edge_site_flow_96[edge_site_two] =
-                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
-                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                            edge_site_flow_96[edge_site_two]
+                                = tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                        } else if (new_flow_two > edge_site_flow_95[edge_site_two])
+                        {
                             edge_site_flow_95[edge_site_two] = new_flow_two;
                         }
-                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
-                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two])
+                    {
+                        if (new_flow_two > edge_site_flow_96[edge_site_two])
+                        {
                             edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
                             edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
-                            edge_site_flow_96[edge_site_two] =
-                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
-                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                            edge_site_flow_96[edge_site_two]
+                                = tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                        } else if (new_flow_two > edge_site_flow_95[edge_site_two])
+                        {
                             edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
                             edge_site_flow_95[edge_site_two] = new_flow_two;
-                        } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
+                        } else if (new_flow_two > edge_site_flow_94[edge_site_two])
+                        {
                             edge_site_flow_94[edge_site_two] = new_flow_two;
                         }
                     }
@@ -237,15 +282,19 @@ public:
                 tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
 
                 // 维护94 95 96 的值
-                if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
+                if (data.get_mtime_num() == 1)
+                {    // 特殊情况只有一个时点
                     edge_site_flow_95[edge_site_one] = new_flow_one;
-                } else {
-                    if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                } else
+                {
+                    if (new_flow_one >= edge_site_flow_94[edge_site_one])
+                    {
                         edge_site_flow_95[edge_site_one] = new_flow_one;
-                    } else {
+                    } else
+                    {
                         edge_site_flow_95[edge_site_one] = edge_site_flow_94[edge_site_one];
-                        edge_site_flow_94[edge_site_one] =
-                            tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
+                        edge_site_flow_94[edge_site_one]
+                            = tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
                     }
                 }
                 flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(
@@ -264,17 +313,21 @@ public:
             debug << "T: " << T << " cost: " << now_cost << endl;
 #endif
 
-            T = T * dT; //降温
+            T = T * dT;    //降温
         }
 
-        if (now_cost < best_cost) {
+        if (now_cost < best_cost)
+        {
             best_cost = now_cost;
             // 将答案整合进distribution中
             //[mtime][customer][...] = <edge_site, stream_type>
             Distribution distribution(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
-            for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                    for (const auto &stream : ans[m_time][edge_site]) {
+            for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time)
+            {
+                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+                {
+                    for (const auto &stream : ans[m_time][edge_site])
+                    {
                         int customer_site = stream.second.second;
                         int stream_type = stream.second.first;
                         distribution[m_time][customer_site].push_back({edge_site, stream_type});
@@ -286,19 +339,14 @@ public:
         }
     }
 
-    inline int get_k94_order() {
-        return max((data.get_mtime_num() * 19 - 1) / 20 + 1 - 1, 1ul);
-    }
+    inline int get_k94_order() { return max((data.get_mtime_num() * 19 - 1) / 20 + 1 - 1, 1ul); }
 
-    inline int get_k95_order() {
-        return (data.get_mtime_num() * 19 - 1) / 20 + 1;
-    }
+    inline int get_k95_order() { return (data.get_mtime_num() * 19 - 1) / 20 + 1; }
 
-    inline int get_k96_order() {
-        return min((data.get_mtime_num() * 19 - 1) / 20 + 1 + 1, data.get_mtime_num());
-    }
+    inline int get_k96_order() { return min((data.get_mtime_num() * 19 - 1) / 20 + 1 + 1, data.get_mtime_num()); }
 
-    void simple_ffd() {
+    void simple_ffd()
+    {
         /* 获得随机种子*/
         srand((unsigned int)time(NULL));
 
@@ -311,10 +359,11 @@ public:
         edge_site_flow_95.assign(data.get_edge_num(), 0);
         edge_site_flow_96.assign(data.get_edge_num(), 0);
 
-        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+        {
             tree.assign(data.get_edge_num(), WeightSegmentTree(data.site_bandwidth[edge_site]));
-            flow_to_m_time_per_eige_site.assign(data.get_edge_num(),
-                                                vector<set<int>>(data.site_bandwidth[edge_site] + 1));
+            flow_to_m_time_per_eige_site.assign(
+                data.get_edge_num(), vector<set<int>>(data.site_bandwidth[edge_site] + 1));
         }
 
         edge_site_total_stream_per_time.assign(data.get_mtime_num(), vector<int>(data.get_edge_num()));
@@ -330,16 +379,21 @@ public:
         index_96 = get_k96_order();
 
         /*更新stream_per_time*/
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time)
+        {
             const auto &ori_demand_now_time = data.demand[m_time];
             auto &stream_now_time = stream_per_time[m_time];
             stream_now_time.reserve(100 * data.get_customer_num());
-            for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
-                for (size_t stream_index = 0; stream_index < ori_demand_now_time[customer_site].size();
-                     ++stream_index) {
+            for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site)
+            {
+                for (size_t stream_index = 0; stream_index < ori_demand_now_time[customer_site].size(); ++stream_index)
+                {
                     const auto &stream = ori_demand_now_time[customer_site][stream_index];
-                    if (stream.first != 0) {
-                        stream_per_time[m_time].push_back({stream.first, {stream.second, customer_site}});
+                    if (stream.first != 0)
+                    {
+                        stream_per_time[m_time].push_back({
+                            stream.first, {stream.second, customer_site}
+                        });
                     }
                 }
             }
@@ -353,25 +407,34 @@ public:
 
         /*使用ffd算法获得一组解*/
         vector<int> edge_order(data.get_edge_num());
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
+        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time)
+        {
             // 决定每轮遍历的顺序
             edge_order.resize(0);
-            for (size_t edge_site = m_time % data.get_edge_num(); edge_site < data.get_edge_num(); ++edge_site) {
+            for (size_t edge_site = m_time % data.get_edge_num(); edge_site < data.get_edge_num(); ++edge_site)
+            {
                 edge_order.push_back(edge_site);
             }
-            for (size_t edge_site = 0; edge_site < m_time % data.get_edge_num(); ++edge_site) {
+            for (size_t edge_site = 0; edge_site < m_time % data.get_edge_num(); ++edge_site)
+            {
                 edge_order.push_back(edge_site);
             }
-            for (const auto &stream : stream_per_time[m_time]) {
+            for (const auto &stream : stream_per_time[m_time])
+            {
                 const int flow = stream.first;
                 const int stream_type = stream.second.first;
                 const int customer_site = stream.second.second;
-                for (auto edge_site : edge_order) {
-                    if (edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site]) {
-                        if (data.qos[customer_site][edge_site] < data.qos_constraint) { // qos 限制
+                for (auto edge_site : edge_order)
+                {
+                    if (edge_site_total_stream_per_time[m_time][edge_site] + flow <= data.site_bandwidth[edge_site])
+                    {
+                        if (data.qos[customer_site][edge_site] < data.qos_constraint)
+                        {    // qos 限制
                             edge_site_total_stream_per_time[m_time][edge_site] += flow;
                             total_stream_per_edge_site[edge_site] += flow;
-                            ans[m_time][edge_site].push_back({flow, {stream_type, customer_site}});
+                            ans[m_time][edge_site].push_back({
+                                flow, {stream_type, customer_site}
+                            });
                             best_distribution[m_time][customer_site].push_back({edge_site, stream_type});
                             break;
                         }
@@ -380,21 +443,26 @@ public:
             }
         }
 
-        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time) {
-            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+        for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time)
+        {
+            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+            {
                 flow_to_m_time_per_eige_site[edge_site][edge_site_total_stream_per_time[m_time][edge_site]].insert(
                     m_time);
-                tree[edge_site].update(0, 0, data.site_bandwidth[edge_site],
-                                       edge_site_total_stream_per_time[m_time][edge_site], 1);
+                tree[edge_site].update(
+                    0, 0, data.site_bandwidth[edge_site], edge_site_total_stream_per_time[m_time][edge_site], 1);
             }
         }
 
         double total_cost = 0.0;
-        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-            if (data.get_mtime_num() > 1) {
+        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+        {
+            if (data.get_mtime_num() > 1)
+            {
                 edge_site_flow_94[edge_site] = tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_94);
             }
-            if (data.get_mtime_num() >= 20) {
+            if (data.get_mtime_num() >= 20)
+            {
                 edge_site_flow_96[edge_site] = tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_96);
             }
 
@@ -402,15 +470,19 @@ public:
             edge_site_flow_95[edge_site] = flow_95;
 
             double cost = 0.0;
-            if (total_stream_per_edge_site[edge_site] == 0) {
+            if (total_stream_per_edge_site[edge_site] == 0)
+            {
                 cost = 0.0;
-            } else {
-                if (flow_95 <= data.base_cost) {
+            } else
+            {
+                if (flow_95 <= data.base_cost)
+                {
                     cost = data.base_cost;
-                } else {
-                    cost =
-                        1.0 * (flow_95 - data.base_cost) * (flow_95 - data.base_cost) / data.site_bandwidth[edge_site] +
-                        flow_95;
+                } else
+                {
+                    cost
+                        = 1.0 * (flow_95 - data.base_cost) * (flow_95 - data.base_cost) / data.site_bandwidth[edge_site]
+                        + flow_95;
                 }
             }
             cost_per_edge_site[edge_site] = cost;
@@ -421,14 +493,14 @@ public:
         cout << "init over" << endl;
     }
 
-    Distribution excute() {
+    Distribution excute()
+    {
         simple_ffd();
         // SA(1e6, 0.99999, 1e-3);
         SA(1e12, 0.9999994, 1e2);
         SA(1e5, 0.99999, 1e-14);
         return best_distribution;
     }
-    FFD(Data data) : data(data) {
-    }
+    FFD(Data data) : data(data) { }
 };
 #endif
