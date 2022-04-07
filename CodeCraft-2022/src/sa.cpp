@@ -3,7 +3,7 @@
  * @Date: 2022-04-06 19:51:47
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-07 11:06:00
+ * @LastEditTime: 2022-04-07 14:34:34
  * @FilePath: /FDO/CodeCraft-2022/src/sa.cpp
  */
 #ifndef _SA_
@@ -68,7 +68,300 @@ private:
     vector<vector<vector<Stream>>> ans;    // 最终的分配答案
 
     /* 一些工具函数 */
+    // 判断是否联通
     inline bool is_connect(int customer, int edge) const { return data.qos[customer][edge] < data.qos_constraint; }
+    // 从合法的95流量计算cost开销
+    inline double cal_95flow_cost(int flow_95, int edge_site) const
+    {
+        double cost = 0.0;
+        if (flow_95 <= data.base_cost)
+            cost = data.base_cost;
+        else
+            cost = 1.0 * (flow_95 - data.base_cost) * (flow_95 - data.base_cost) / data.site_bandwidth[edge_site]
+                + flow_95;
+        return cost;
+    }
+
+    // 执行模拟退货的算法
+    void excute_sa(double T, double dT, double end_T)
+    {
+        double now_cost = this->best_cost;
+        while (T > end_T)
+        {
+            struct {
+                int site;            // 边缘点
+                int old_flow;        // 原来的流量
+                int new_flow;        // 新的流量
+                int new_flow_95;     // 新的95值
+                double new_cost;     // 新的cost
+            } site_from, site_to;    // 变化的两个点，流量从from移动到to
+
+            // 随机选取合法的edge_site_from，最多执行edge_nume次。仍然找不到则降温
+            site_from.site = rand() % data.get_edge_num();
+            for (size_t i = 0; i < data.get_edge_num() and this->specific_flow[site_from.site]._95 == 0; ++i)
+                site_from.site = rand() % data.get_edge_num();
+            if (this->specific_flow[site_from.site]._95 == 0)
+            {
+                T = T * dT;
+                continue;
+            }
+
+            // 选取edge_site_from的95值所在第一个时间点
+            int mtime
+                = *this->flow_to_m_time_per_eige_site[site_from.site][this->specific_flow[site_from.site]._95].begin();
+            // 随机在该时刻选取一个stream Node: 非const引用，用于调用swap交换
+            auto &stream = this->ans[mtime][site_from.site][rand() % ans[mtime][site_from.site].size()];
+
+            // 随机选取一个合法的edge_site_to, 同时不为edge_site_from
+            vector<int> valid_site;
+            valid_site.reserve(this->customer_valid_edge_site[stream.customer_site].size());
+            for (auto edge_site : this->customer_valid_edge_site[stream.customer_site])
+            {
+                if (this->edge_site_total_stream_per_time[mtime][edge_site] + stream.flow
+                    <= this->data.site_bandwidth[edge_site])
+                {
+                    if (edge_site != site_from.site)
+                        valid_site.push_back(edge_site);
+                }
+            }
+            if (valid_site.empty())
+            {
+                // 没有合法的edge_site_to
+                T = T * dT;
+                continue;
+            }
+            site_to.site = valid_site[rand() % valid_site.size()];    // 随机从合法范围选取
+
+
+            /*计算拿出edge_sitge_from以后的95值和花费*/
+            site_from.old_flow = this->edge_site_total_stream_per_time[mtime][site_from.site];
+            // 确认edge_site_from新的95值，注意edge_site_from的流量是减少的
+            site_from.new_flow_95 = 0;
+
+            if (data.get_customer_num() == 1)    // 只有一个时间点的特殊情况
+                site_from.new_flow_95 = site_from.new_flow;
+            else
+            {
+
+                if (site_from.new_flow >= this->specific_flow[site_from.site]._94)    // 新flow>=94值，则新95是新flow
+                    site_from.new_flow_95 = site_from.new_flow;
+                else    // 否则，新95是原94值
+                    site_from.new_flow_95 = this->specific_flow[site_from.site]._94;
+            }
+            // 计算拿出edge_site_from以后的花费：拿完仍有流量使用公式计算，否则直为0
+            if (this->total_stream_per_edge_site[site_from.site] - stream.flow > 0)
+                site_from.new_cost = this->cal_95flow_cost(site_from.new_flow_95, site_from.site);
+            else
+                site_from.new_cost = 0.0;
+
+
+            /*计算放入edge_site_to以后的95值和花费*/
+            site_to.old_flow = this->edge_site_total_stream_per_time[mtime][site_to.site];
+            site_to.new_flow = site_to.old_flow + stream.flow;
+            // 确认edge_site_to新的95值。注意edge_site_to的流量是增加的
+            if (data.get_mtime_num() < 20)    // mtime<20时，不需要考虑96值
+            {
+                /* 新流大于95值，则新95是新流
+                 * 否则，95不变
+                 */
+                if (site_to.new_flow > this->specific_flow[site_to.site]._95)
+                    site_to.new_flow_95 = site_to.new_flow;
+                else
+                    site_to.new_flow_95 = this->specific_flow[site_to.site]._95;
+            }
+            else    // 同时考虑94、95、96
+            {
+
+                // 旧流量>95，则新95不变
+                if (site_to.old_flow > this->specific_flow[site_to.site]._95)
+                    site_to.new_flow_95 = this->specific_flow[site_to.site]._95;
+                else
+                {
+                    /* 旧流量<=95时：
+                     * 新流大于96,则新95是原来的96
+                     * 新流小于96大于95, 则新流就是新95
+                     * 新流小于等于95,则95不变
+                     */
+                    if (site_to.new_flow > this->specific_flow[site_to.site]._96)
+                        site_to.new_flow_95 = this->specific_flow[site_to.site]._96;
+                    else if (site_to.new_flow > this->specific_flow[site_to.site]._95)
+                        site_to.new_flow_95 = site_to.new_flow;
+                    else
+                        site_to.new_flow_95 = this->specific_flow[site_to.site]._95;
+                }
+            }
+            // 计算放入edge_site_to以后的花费
+            site_to.new_cost = this->cal_95flow_cost(site_to.new_flow_95, site_to.site);
+
+            /* 开始考虑是否要进行更新 */
+            bool is_accept = false;
+            const double diff = (site_from.new_cost + site_to.new_cost)
+                - (this->cost_per_edge_site[site_from.site] + this->cost_per_edge_site[site_to.site]);
+            if (diff < 0.0)
+                is_accept = true;
+            else if (rand() / (double)RAND_MAX < exp(-diff / T))
+                is_accept = true;
+
+
+            /* 执行更新/回退: 由于维护的变量已经预更新了，需要重新同步线段树、维护量和ans*/
+            if (is_accept == true)
+            {
+                /*先进行插入*/
+                this->tree[site_to.site].update(site_to.old_flow, -1);
+                this->tree[site_to.site].update(site_to.new_flow, 1);
+
+                // 维护94、95、96的值
+                if (data.get_mtime_num() < 20)
+                {
+                    /* 仅考虑94、95的值:
+                     * 旧flow == _95;若旧flow<= _94; 两种情况
+                     */
+                    if (site_to.old_flow == this->specific_flow[site_to.site]._95)
+                        this->specific_flow[site_to.site]._95 = site_to.new_flow;    // new_flow增加，必为95
+                    else if (site_to.old_flow <= this->specific_flow[site_to.site]._94)
+                    {
+                        /* old_flow <= 原94:
+                         * new_flow > 愿95, 则94、95右移
+                         * new_flow <= 原95,且大于94，则95不变，94右移
+                         * 剩余情况不用移动
+                         */
+                        if (site_to.new_flow > this->specific_flow[site_to.site]._95)
+                        {
+                            if (data.get_mtime_num() > 1ul)    // 有94
+                                this->specific_flow[site_to.site]._94 = this->specific_flow[site_to.site]._95;
+                            this->specific_flow[site_to.site]._95 = site_to.new_flow;
+                        }
+                        else if (site_to.new_flow > this->specific_flow[site_to.site]._94)
+                        {
+                            if (data.get_mtime_num() > 1ul)    // 有94
+                                this->specific_flow[site_to.site]._94 = site_to.new_flow;
+                        }
+                    }
+                }
+                else
+                {
+                    /* 同时考虑94、95、96:
+                     * 分为old_flow==96; old_flow==95; old_flow<=94三种情况
+                     */
+                    if (site_to.old_flow == this->specific_flow[site_to.site]._96)
+                    {
+                        // 旧流大于96, 新值增加人大于96,不影响。但是旧流==96时需重新查询96
+                        this->specific_flow[site_to.site]._96
+                            = this->tree[site_to.site].queryK(this->specific_index._96);
+                    }
+                    else if (site_to.old_flow == this->specific_flow[site_to.site]._95)
+                    {
+                        /* old_flow == 原95时：
+                         * 新值>96, 95、96都左移
+                         * 新值<=96 且 > 95, 96不变, 新流变95
+                         */
+                        if (site_to.new_flow > this->specific_flow[site_to.site]._96)
+                        {
+                            this->specific_flow[site_to.site]._95 = this->specific_flow[site_to.site]._96;
+                            this->specific_flow[site_to.site]._96
+                                = this->tree[site_to.site].queryK(this->specific_index._96);
+                        }
+                        else if (site_to.new_flow > this->specific_flow[site_to.site]._95)
+                            this->specific_flow[site_to.site]._95 = site_to.new_flow;
+                    }
+                    else if (site_to.old_flow <= this->specific_flow[site_to.site]._94)
+                    {
+                        /* old_flow < 原95：
+                         * 根据新值的范围进行不同程度的左移即可
+                         */
+                        if (site_to.new_flow > this->specific_flow[site_to.site]._96)
+                        {
+                            this->specific_flow[site_to.site]._94 = this->specific_flow[site_to.site]._95;
+                            this->specific_flow[site_to.site]._95 = this->specific_flow[site_to.site]._96;
+                            this->specific_flow[site_to.site]._96
+                                = this->tree[site_to.site].queryK(this->specific_index._96);
+                        }
+                        else if (site_to.new_flow > this->specific_flow[site_to.site]._95)
+                        {
+                            this->specific_flow[site_to.site]._94 = this->specific_flow[site_to.site]._95;
+                            this->specific_flow[site_to.site]._95 = site_to.new_flow;
+                        }
+                        else if (site_to.new_flow > this->specific_flow[site_to.site]._94)
+                            this->specific_flow[site_to.site]._94 = site_to.new_flow;
+                    }
+                }
+
+                // 维护flow的mtime
+                this->flow_to_m_time_per_eige_site[site_to.site][site_to.old_flow].erase(mtime);
+                this->flow_to_m_time_per_eige_site[site_to.site][site_to.new_flow].insert(mtime);
+                // 维护95值(95值一定与预更新相同)
+                this->specific_flow[site_to.site]._95 = site_to.new_flow_95;
+                // 维护不同时刻节点的stream和
+                this->edge_site_total_stream_per_time[mtime][site_to.site] = site_to.new_flow;
+                // 维护节点的stream所有时间的和
+                this->total_stream_per_edge_site[site_to.site] += stream.flow;
+                // 维护cost
+                this->cost_per_edge_site[site_to.site] = site_to.new_cost;
+                // 维护ans
+                ans[mtime][site_to.site].push_back(stream);
+
+
+                /* 再删除 */
+                // 维护94、95、96的值（site_from的old flow一定是95值）
+                if (data.get_mtime_num() == 1)
+                    this->specific_flow[site_from.site]._95 = site_from.new_flow;
+                else
+                {
+                    if (site_from.new_flow >= this->specific_flow[site_from.site]._94)    // 仅更新95
+                        this->specific_flow[site_from.site]._95 = site_from.new_flow;
+                    else    // 减小后<94, 右移
+                    {
+                        this->specific_flow[site_from.site]._95 = this->specific_flow[site_from.site]._94;
+                        this->specific_flow[site_from.site]._94
+                            = this->tree[site_from.site].queryK(this->specific_index._94);
+                    }
+                }
+                // 维护flow的mtime
+                // mtime选取的就是begin，删除begin加速
+                this->flow_to_m_time_per_eige_site[site_from.site][site_from.old_flow].erase(
+                    this->flow_to_m_time_per_eige_site[site_from.site][site_from.old_flow].begin());
+                this->flow_to_m_time_per_eige_site[site_from.site][site_from.new_flow].insert(mtime);
+                // 维护95值
+                this->specific_flow[site_from.site]._95 = site_from.new_flow_95;
+                // 维护不同时刻节点的stream和
+                this->edge_site_total_stream_per_time[mtime][site_from.site] = site_from.new_flow;
+                // 维护节点的stream所有时间的和
+                this->total_stream_per_edge_site[site_from.site] -= stream.flow;
+                // 维护cost
+                this->cost_per_edge_site[site_from.site] = site_from.new_cost;
+                // 维护ans(与最后一个值进行交换，实现O(1)的删除)
+                swap(stream, ans[mtime][site_from.site].back());
+                ans[mtime][site_from.site].pop_back();
+
+
+                // 累加cost
+                now_cost += diff;
+            }
+        }
+
+
+        // 执行完算法后的答案更新
+        if (now_cost < this->best_cost)
+        {
+            this->best_cost = now_cost;
+            // 将答案整合进distribution中
+            //[mtime][customer][...] = <edge_site, stream_type>
+            Distribution distribution(data.get_mtime_num(), vector<vector<pair<int, int>>>(data.get_customer_num()));
+            for (size_t m_time = 0; m_time < data.get_mtime_num(); ++m_time)
+            {
+                for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+                {
+                    for (const auto &stream : ans[m_time][edge_site])
+                    {
+                        distribution[m_time][stream.customer_site].emplace_back(edge_site, stream.stream_type);
+                    }
+                }
+            }
+            best_distribution = distribution;
+            cout << "best_cost: " << this->best_cost << endl;
+        }
+        return;
+    }
 
 public:
     SOLVE_SA(Data data) : data(data)
@@ -198,17 +491,11 @@ public:
             if (this->total_stream_per_edge_site[edge_site] == 0)
                 cost = 0.0;
             else
-            {
-                if (flow_95 <= data.base_cost)
-                    cost = data.base_cost;
-                else
-                    cost
-                        = 1.0 * (flow_95 - data.base_cost) * (flow_95 - data.base_cost) / data.site_bandwidth[edge_site]
-                        + flow_95;
-            }
+                cost = this->cal_95flow_cost(flow_95, edge_site);
+
+            // 累计cost并维护
             this->cost_per_edge_site[edge_site] = cost;
             total_cost += cost;
-            // debug << "edge_site: " << edge_site << "flow" << flow_95 << " cost: " << cost << endl;
         }
         this->best_cost = total_cost;
 
