@@ -1,7 +1,7 @@
 /*
  * @Author: xv_rong
  * @Date: 2022-03-31 19:42:58
- * @LastEditors: xv_rong
+ * @LastEditors: Please set LastEditors
  */
 #ifndef __FFD__
 #define __FFD__
@@ -87,209 +87,217 @@ public:
 
         vector<int> valid_edge_site;
         valid_edge_site.reserve(data.get_edge_num());
+        // 第一层 温度下降
         while (T > end_T) {
-            /*随机选择 edge_site_one*/
-            if (edge_site_95_has_flow.size() == 0) {
-                break;
-            }
-            int edge_site_one_index = rand() % edge_site_95_has_flow.size();
-            int edge_site_one = edge_site_95_has_flow[edge_site_one_index];
 
-            /*选择edge_site_one 95值的时点*/
-            int m_time = *flow_to_m_time_per_eige_site[edge_site_one][edge_site_flow_95[edge_site_one]].begin();
+            // 用来判断平衡的状态
+            int total_steps_per_T = 0;
 
-            /*随机选择stream*/
-            auto &stream = ans[m_time][edge_site_one][rand() % ans[m_time][edge_site_one].size()];
-
-            /*随机选择edge_site_two*/
-            // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
-            valid_edge_site.resize(0);
-            for (auto edge_site : customer_to_edge_qos_valid[stream.customer_site]) {
-                if (edge_site_total_stream_per_time[m_time][edge_site] + stream.flow <=
-                        data.site_bandwidth[edge_site] &&
-                    edge_site != edge_site_one) {
-                    valid_edge_site.emplace_back(edge_site);
+            // 第二层 热平衡
+            while (total_steps_per_T < 20000) {
+                /*随机选择 edge_site_one*/
+                if (edge_site_95_has_flow.size() == 0) {
+                    break;
                 }
-            }
-            if (valid_edge_site.empty() == true) {
-                T = T * dT; //降温
-                continue;
-            }
-            int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
+                int edge_site_one_index = rand() % edge_site_95_has_flow.size();
+                int edge_site_one = edge_site_95_has_flow[edge_site_one_index];
 
-            /* 拿出后 edge_site_one 花费是多少*/
-            int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
-            int new_flow_one = old_flow_one - stream.flow;
+                /*选择edge_site_one 95值的时点*/
+                int m_time = *flow_to_m_time_per_eige_site[edge_site_one][edge_site_flow_95[edge_site_one]].begin();
 
-            /* 确定new_flow_95_one值是多少*/
-            int new_flow_95_one = 0;
-            if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
-                new_flow_95_one = new_flow_one;
-            } else {
-                if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                /*随机选择stream*/
+                auto &stream = ans[m_time][edge_site_one][rand() % ans[m_time][edge_site_one].size()];
+
+                /*随机选择edge_site_two*/
+                // 挑选出所有满足qos约束 能放入flow 且不是edge_site_one的edge_site
+                valid_edge_site.resize(0);
+                for (auto edge_site : customer_to_edge_qos_valid[stream.customer_site]) {
+                    if (edge_site_total_stream_per_time[m_time][edge_site] + stream.flow <=
+                            data.site_bandwidth[edge_site] &&
+                        edge_site != edge_site_one) {
+                        valid_edge_site.emplace_back(edge_site);
+                    }
+                }
+                if (valid_edge_site.empty() == true) {
+                    ++total_steps_per_T;
+                    continue;
+                }
+                int edge_site_two = valid_edge_site[rand() % valid_edge_site.size()];
+
+                /* 拿出后 edge_site_one 花费是多少*/
+                int old_flow_one = edge_site_total_stream_per_time[m_time][edge_site_one];
+                int new_flow_one = old_flow_one - stream.flow;
+
+                /* 确定new_flow_95_one值是多少*/
+                int new_flow_95_one = 0;
+                if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
                     new_flow_95_one = new_flow_one;
                 } else {
-                    new_flow_95_one = edge_site_flow_94[edge_site_one];
+                    if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                        new_flow_95_one = new_flow_one;
+                    } else {
+                        new_flow_95_one = edge_site_flow_94[edge_site_one];
+                    }
                 }
-            }
 
-            double cost_one = 0.0;
-            if (total_stream_per_edge_site[edge_site_one] - stream.flow != 0) {
-                if (new_flow_95_one <= data.base_cost) {
-                    cost_one = data.base_cost;
-                } else {
-                    cost_one = 1.0 * (new_flow_95_one - data.base_cost) * (new_flow_95_one - data.base_cost) /
-                                   data.site_bandwidth[edge_site_one] +
-                               new_flow_95_one;
+                double cost_one = 0.0;
+                if (total_stream_per_edge_site[edge_site_one] - stream.flow != 0) {
+                    if (new_flow_95_one <= data.base_cost) {
+                        cost_one = data.base_cost;
+                    } else {
+                        cost_one = 1.0 * (new_flow_95_one - data.base_cost) * (new_flow_95_one - data.base_cost) /
+                                       data.site_bandwidth[edge_site_one] +
+                                   new_flow_95_one;
+                    }
                 }
-            }
 
-            /* 放入后 edge_site_two 花费是多少*/
-            const int old_flow_two = edge_site_total_stream_per_time[m_time][edge_site_two];
-            const int new_flow_two = old_flow_two + stream.flow;
+                /* 放入后 edge_site_two 花费是多少*/
+                const int old_flow_two = edge_site_total_stream_per_time[m_time][edge_site_two];
+                const int new_flow_two = old_flow_two + stream.flow;
 
-            /* 确定new_flow_95_two值是多少*/
-            int old_flow_95_two = edge_site_flow_95[edge_site_two];
-            int new_flow_95_two = 0;
+                /* 确定new_flow_95_two值是多少*/
+                int old_flow_95_two = edge_site_flow_95[edge_site_two];
+                int new_flow_95_two = 0;
 
-            if (data.get_mtime_num() < 20) { // 特殊情况时点小于20
-                if (new_flow_two > edge_site_flow_95[edge_site_two]) {
-                    new_flow_95_two = new_flow_two;
-                } else {
-                    new_flow_95_two = edge_site_flow_95[edge_site_two];
-                }
-            } else {
-                if (old_flow_two > edge_site_flow_95[edge_site_two]) {
-                    new_flow_95_two = edge_site_flow_95[edge_site_two];
-                } else {
-                    if (new_flow_two > edge_site_flow_96[edge_site_two]) {
-                        new_flow_95_two = edge_site_flow_96[edge_site_two];
-                    } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                if (data.get_mtime_num() < 20) { // 特殊情况时点小于20
+                    if (new_flow_two > edge_site_flow_95[edge_site_two]) {
                         new_flow_95_two = new_flow_two;
                     } else {
                         new_flow_95_two = edge_site_flow_95[edge_site_two];
                     }
+                } else {
+                    if (old_flow_two > edge_site_flow_95[edge_site_two]) {
+                        new_flow_95_two = edge_site_flow_95[edge_site_two];
+                    } else {
+                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                            new_flow_95_two = edge_site_flow_96[edge_site_two];
+                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                            new_flow_95_two = new_flow_two;
+                        } else {
+                            new_flow_95_two = edge_site_flow_95[edge_site_two];
+                        }
+                    }
                 }
-            }
 
-            double cost_two = 0.0;
-            if (new_flow_95_two <= data.base_cost) {
-                cost_two = data.base_cost;
-            } else {
-                cost_two = 1.0 * (new_flow_95_two - data.base_cost) * (new_flow_95_two - data.base_cost) /
-                               data.site_bandwidth[edge_site_two] +
-                           new_flow_95_two;
-            }
+                double cost_two = 0.0;
+                if (new_flow_95_two <= data.base_cost) {
+                    cost_two = data.base_cost;
+                } else {
+                    cost_two = 1.0 * (new_flow_95_two - data.base_cost) * (new_flow_95_two - data.base_cost) /
+                                   data.site_bandwidth[edge_site_two] +
+                               new_flow_95_two;
+                }
 
-            /*考虑是否接受更新*/
-            int is_acc = false;
-            const double df =
-                (cost_one + cost_two) - (cost_per_edge_site[edge_site_one] + cost_per_edge_site[edge_site_two]);
-            if (df < 0.0) {
-                is_acc = true;
-            } else if (exp(-df / T) * RAND_MAX > rand()) {
-                is_acc = true;
-            }
+                /*考虑是否接受更新*/
+                int is_acc = false;
+                const double df =
+                    (cost_one + cost_two) - (cost_per_edge_site[edge_site_one] + cost_per_edge_site[edge_site_two]);
+                if (df < 0.0) {
+                    is_acc = true;
+                } else if (exp(-df / T) * RAND_MAX > rand()) {
+                    is_acc = true;
+                }
 
-            if (is_acc == true) {
-                // 先插入
-                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
-                tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
+                if (is_acc == true) {
+                    // 先插入
+                    tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], old_flow_two, -1);
+                    tree[edge_site_two].update(0, 0, data.site_bandwidth[edge_site_two], new_flow_two, 1);
 
-                // 维护94 95 96 的值
-                if (data.get_mtime_num() < 20) { // 特殊情况时点小于20 不需要维护96值
-                    if (old_flow_two == edge_site_flow_95[edge_site_two]) {
-                        edge_site_flow_95[edge_site_two] = new_flow_two;
-                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
-                        if (new_flow_two > edge_site_flow_95[edge_site_two]) {
-                            if (data.get_mtime_num() > 1) {
-                                edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
-                            }
+                    // 维护94 95 96 的值
+                    if (data.get_mtime_num() < 20) { // 特殊情况时点小于20 不需要维护96值
+                        if (old_flow_two == edge_site_flow_95[edge_site_two]) {
                             edge_site_flow_95[edge_site_two] = new_flow_two;
-                        } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
-                            if (data.get_mtime_num() > 1) {
+                        } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
+                            if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                                if (data.get_mtime_num() > 1) {
+                                    edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
+                                }
+                                edge_site_flow_95[edge_site_two] = new_flow_two;
+                            } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
+                                if (data.get_mtime_num() > 1) {
+                                    edge_site_flow_94[edge_site_two] = new_flow_two;
+                                }
+                            }
+                        }
+                    } else {
+                        if (old_flow_two >= edge_site_flow_96[edge_site_two]) {
+                            if (old_flow_two == edge_site_flow_96[edge_site_two]) {
+                                edge_site_flow_96[edge_site_two] =
+                                    tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                            }
+                        } else if (old_flow_two == edge_site_flow_95[edge_site_two]) {
+                            if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                                edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
+                                edge_site_flow_96[edge_site_two] =
+                                    tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                            } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                                edge_site_flow_95[edge_site_two] = new_flow_two;
+                            }
+                        } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
+                            if (new_flow_two > edge_site_flow_96[edge_site_two]) {
+                                edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
+                                edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
+                                edge_site_flow_96[edge_site_two] =
+                                    tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
+                            } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
+                                edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
+                                edge_site_flow_95[edge_site_two] = new_flow_two;
+                            } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
                                 edge_site_flow_94[edge_site_two] = new_flow_two;
                             }
                         }
                     }
-                } else {
-                    if (old_flow_two >= edge_site_flow_96[edge_site_two]) {
-                        if (old_flow_two == edge_site_flow_96[edge_site_two]) {
-                            edge_site_flow_96[edge_site_two] =
-                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
-                        }
-                    } else if (old_flow_two == edge_site_flow_95[edge_site_two]) {
-                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
-                            edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
-                            edge_site_flow_96[edge_site_two] =
-                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
-                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
-                            edge_site_flow_95[edge_site_two] = new_flow_two;
-                        }
-                    } else if (old_flow_two <= edge_site_flow_94[edge_site_two]) {
-                        if (new_flow_two > edge_site_flow_96[edge_site_two]) {
-                            edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
-                            edge_site_flow_95[edge_site_two] = edge_site_flow_96[edge_site_two];
-                            edge_site_flow_96[edge_site_two] =
-                                tree[edge_site_two].queryK(0, 0, data.site_bandwidth[edge_site_two], index_96);
-                        } else if (new_flow_two > edge_site_flow_95[edge_site_two]) {
-                            edge_site_flow_94[edge_site_two] = edge_site_flow_95[edge_site_two];
-                            edge_site_flow_95[edge_site_two] = new_flow_two;
-                        } else if (new_flow_two > edge_site_flow_94[edge_site_two]) {
-                            edge_site_flow_94[edge_site_two] = new_flow_two;
-                        }
+
+                    flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
+                    flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].emplace(m_time);
+                    edge_site_flow_95[edge_site_two] = new_flow_95_two;
+                    edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
+                    total_stream_per_edge_site[edge_site_two] += stream.flow;
+                    cost_per_edge_site[edge_site_two] = cost_two;
+                    ans[m_time][edge_site_two].emplace_back(stream);
+                    // 95值的前后状况 判断edge_site_two应在edge_site_95_has_flow中加入
+                    if (old_flow_95_two == 0 && new_flow_95_two > 0) {
+                        edge_site_95_has_flow.push_back(edge_site_two);
                     }
-                }
 
-                flow_to_m_time_per_eige_site[edge_site_two][old_flow_two].erase(m_time);
-                flow_to_m_time_per_eige_site[edge_site_two][new_flow_two].emplace(m_time);
-                edge_site_flow_95[edge_site_two] = new_flow_95_two;
-                edge_site_total_stream_per_time[m_time][edge_site_two] = new_flow_two;
-                total_stream_per_edge_site[edge_site_two] += stream.flow;
-                cost_per_edge_site[edge_site_two] = cost_two;
-                ans[m_time][edge_site_two].emplace_back(stream);
-                // 95值的前后状况 判断edge_site_two应在edge_site_95_has_flow中加入
-                if (old_flow_95_two == 0 && new_flow_95_two > 0) {
-                    edge_site_95_has_flow.push_back(edge_site_two);
-                }
+                    // 再删除
+                    tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
+                    tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
 
-                // 再删除
-                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], old_flow_one, -1);
-                tree[edge_site_one].update(0, 0, data.site_bandwidth[edge_site_one], new_flow_one, 1);
-
-                // 维护94 95 96 的值
-                if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
-                    edge_site_flow_95[edge_site_one] = new_flow_one;
-                } else {
-                    if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                    // 维护94 95 96 的值
+                    if (data.get_mtime_num() == 1) { // 特殊情况只有一个时点
                         edge_site_flow_95[edge_site_one] = new_flow_one;
                     } else {
-                        edge_site_flow_95[edge_site_one] = edge_site_flow_94[edge_site_one];
-                        edge_site_flow_94[edge_site_one] =
-                            tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
+                        if (new_flow_one >= edge_site_flow_94[edge_site_one]) {
+                            edge_site_flow_95[edge_site_one] = new_flow_one;
+                        } else {
+                            edge_site_flow_95[edge_site_one] = edge_site_flow_94[edge_site_one];
+                            edge_site_flow_94[edge_site_one] =
+                                tree[edge_site_one].queryK(0, 0, data.site_bandwidth[edge_site_one], index_94);
+                        }
                     }
-                }
-                flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(
-                    flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].begin());
-                flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].emplace(m_time);
-                edge_site_flow_95[edge_site_one] = new_flow_95_one;
-                edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
-                total_stream_per_edge_site[edge_site_one] -= stream.flow;
-                cost_per_edge_site[edge_site_one] = cost_one;
-                swap(stream, ans[m_time][edge_site_one].back());
-                ans[m_time][edge_site_one].pop_back();
-                // 95值的前后状况 判断edge_site_one应在edge_site_95_has_flow中删除
-                if (old_flow_one > 0 && new_flow_95_one == 0) {
-                    swap(edge_site_95_has_flow[edge_site_one_index], edge_site_95_has_flow.back());
-                    edge_site_95_has_flow.pop_back();
-                }
+                    flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].erase(
+                        flow_to_m_time_per_eige_site[edge_site_one][old_flow_one].begin());
+                    flow_to_m_time_per_eige_site[edge_site_one][new_flow_one].emplace(m_time);
+                    edge_site_flow_95[edge_site_one] = new_flow_95_one;
+                    edge_site_total_stream_per_time[m_time][edge_site_one] = new_flow_one;
+                    total_stream_per_edge_site[edge_site_one] -= stream.flow;
+                    cost_per_edge_site[edge_site_one] = cost_one;
+                    swap(stream, ans[m_time][edge_site_one].back());
+                    ans[m_time][edge_site_one].pop_back();
+                    // 95值的前后状况 判断edge_site_one应在edge_site_95_has_flow中删除
+                    if (old_flow_one > 0 && new_flow_95_one == 0) {
+                        swap(edge_site_95_has_flow[edge_site_one_index], edge_site_95_has_flow.back());
+                        edge_site_95_has_flow.pop_back();
+                    }
 
-                now_cost += df;
+                    now_cost += df;
+                }
+                ++total_steps_per_T; // 记录迭代次数
             }
 #ifdef _DEBUG
-            debug << "T: " << T << " cost: " << now_cost << endl;
+            debug << "T: " << T << " cost: " << now_cost << " steps: " << total_steps_per_T << endl;
 #endif
-
             T = T * dT; //降温
         }
 
@@ -464,10 +472,7 @@ public:
     Distribution excute() {
         simple_ffd();
         // SA(1e6, 0.99999, 1e-3);
-        SA(1e12, 0.9999994, 1e2);
-        SA(1e5, 0.99999, 1e-14);
-        SA(1e12, 0.9999994, 1e2);
-        SA(1e5, 0.99999, 1e-14);
+        SA(1e20, 0.99, 1e-5);
         return best_distribution;
     }
     FFD(Data data) : data(data) {
