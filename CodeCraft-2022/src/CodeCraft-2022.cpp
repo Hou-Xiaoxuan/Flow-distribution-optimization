@@ -20,7 +20,7 @@ int main() {
     // cout << cal_cost(data, distribution) << endl;
 #endif
 
-    output_distribution(data, distribution);
+    output_distribution(data, distribution, sa.best_order);
 
     std::cout << "over" << std::endl;
     return 0;

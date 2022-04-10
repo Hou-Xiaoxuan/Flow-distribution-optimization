@@ -2,8 +2,8 @@
  * @Author: LinXuan
  * @Date: 2022-03-31 19:24:12
  * @Description:
- * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-06 21:00:46
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2022-04-10 15:14:19
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -139,9 +139,14 @@ Data read_file() {
 }
 
 /*按照规定格式输出一个分配好的distribution*/
-void output_distribution(const Data &data, const Distribution &distribution) {
+void output_distribution(const Data &data, const Distribution &distribution, vector<int> &best_order) {
     /*Distribution类型 [mtime][customer][...] = <edge_site, stream_type>*/
     ofstream fout(OUTPUT + "solution.txt");
+
+    for (size_t i = 0; i < 9; ++i) {
+        fout << data.edge_site[best_order[i]] << ",";
+    }
+    fout << data.edge_site[best_order[9]] << endl;
     // 遍历时刻
     for (const auto &distribution_t : distribution) {
         // 遍历customer_site
@@ -162,7 +167,7 @@ void output_distribution(const Data &data, const Distribution &distribution) {
     fout.close();
 }
 
-// // TODD 感觉这个函数有问题
+// 感觉这个函数有问题
 double cal_cost(const Data &data, const Distribution &distribution) {
     double cost = 0.0;
     // 每个边缘节点的需求序列 [mtime][customer][...] = <edge_site, stream_type>
