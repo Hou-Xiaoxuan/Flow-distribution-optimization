@@ -78,8 +78,13 @@ class SA {
     int index_96;
 
     /*根据当前T确定 最大值1000, 最小值1*/
-    int get_swap_times(double T) {
-        return (1 - exp(-T)) * (rand() % 3500) + 1;
+    // int get_swap_times(double T) {
+    //     return (1 - exp(-T)) * (rand() % 3500) + 1;
+    // }
+    int get_swap_times(double T, double T_MAX)
+    {
+        // return (1 - exp(-T)) * (rand() % 3500) + 1;
+        return (T / T_MAX) * 3500 + 1;
     }
 
 public:
@@ -97,7 +102,7 @@ public:
 
         // 变化记录 edge_site_95_has_flow 中增加的edge_site的数量
         int added_num_edge_site_95_has_flow = 0;
-
+        const double T_MAX = T;
         while (T > end_T) {
             if (edge_site_95_has_flow.size() == 0) {
                 break;
@@ -106,7 +111,7 @@ public:
             int edge_site_one_index = rand() % edge_site_95_has_flow.size();
             int edge_site_one = edge_site_95_has_flow[edge_site_one_index];
 
-            int swap_times = get_swap_times(T);
+            int swap_times = get_swap_times(T, T_MAX);
 
             double delta_cost = 0.0;
             record_95.emplace_back(edge_site_one,
@@ -272,7 +277,7 @@ public:
             added_num_edge_site_95_has_flow = 0;
 
 #ifdef _DEBUG
-            debug << "T: " << T << " cost: " << now_cost << endl;
+            // debug << "T: " << T << " cost: " << now_cost << endl;
 #endif
             T = T * dT; //降温
         }
@@ -457,6 +462,8 @@ public:
         vector<int> valid_edge_site;
         valid_edge_site.reserve(data.get_edge_num());
         // 第一层 温度下降
+        double last_cost = this->now_cost; // 统计变化规律
+        int no_change_count = 0;
         while (T > end_T) {
             if (edge_site_95_has_flow.size() == 0) {
                 break;
@@ -656,9 +663,20 @@ public:
             }
 
 #ifdef _DEBUG
-            debug << "T: " << T << " cost: " << now_cost << endl;
+            // debug << "T: " << T << " cost: " << now_cost << endl;
 #endif
             T = T * dT; //降温
+
+            // 连续500次不变就推出
+            if(fabs(now_cost - last_cost) < 0.0001) {
+                if(++no_change_count >= 1000) {
+                    break;
+                }
+            } else {
+                no_change_count = 0;
+                last_cost  = now_cost;
+                // debug << "T: " << T << " cost: " << now_cost << endl;
+            }
         }
 
         if (now_cost < best_cost) {
@@ -680,14 +698,56 @@ public:
 
     Distribution excute() {
         simple_ffd();
-        SA_decent(1e15, 0.999999, 1e11);
-        SA_decent(1e5, 0.999999, 1e-3);
-        SA_shuffle(1e15, 0.99, 1e13);
-        SA_decent(1e5, 0.999999, 1e-3);
-        // SA_excute(1e3, 0.9999, 1e-30);
+
+        SA_decent(1e15, 0.999994, 1e-15);
+
+        SA_shuffle(1e20, 0.99, 1e17);
+        SA_decent(1e5, 0.999999, 1e-20);
+        debug << "shuffle and decent over" << endl << endl;
+
+        SA_shuffle(1e30, 0.99, 1e26);
+        SA_decent(1e5, 0.999999, 1e-20);
+        debug << "shuffle and decent over" << endl << endl;
+
+        SA_shuffle(1e50, 0.99, 1e45);
+        SA_decent(1e5, 0.999999, 1e-20);
+        debug << "shuffle and decent over" << endl << endl;
+
+        SA_shuffle(1e37, 0.99, 1e33);
+        SA_decent(1e5, 0.999999, 1e-20);
+        debug << "shuffle and decent over" << endl << endl;
+
+        SA_shuffle(1e80, 0.99, 1e76);
+        SA_decent(1e5, 0.9999994, 1e-20);
+        debug << "shuffle and decent over" << endl << endl;
+
+        SA_shuffle(1e30, 0.99, 1e27);
+        SA_decent(1e5, 0.9999994, 1e-20);
+        debug << "shuffle and decent over" << endl << endl;
         return best_distribution;
     }
     SA(Data data) : data(data) {
+    }
+
+    // 返回91值最大的10个节点
+    vector<int> get_chose_edge_site()
+    {
+        vector<pair<int, int>> edge_chose(data.get_edge_num());
+        size_t index_91 = max((data.get_mtime_num() * 18 - 1) / 20 + 1 - 1, 1ul);
+        for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site)
+        {
+            edge_chose[edge_site] = {
+                tree[edge_site].queryK(0, 0, data.site_bandwidth[edge_site], index_91),
+                edge_site
+            };
+        }
+        sort(edge_chose.begin(), edge_chose.end(), greater<pair<int, int>>());
+
+        vector<int> ret;
+        for(int i=0; i<10; i++){
+            ret.push_back(edge_chose[i].second);
+        }
+        return ret;
     }
 };
 #endif

@@ -2,8 +2,8 @@
  * @Author: LinXuan
  * @Date: 2022-03-31 19:24:12
  * @Description:
- * @LastEditors: xv_rong
- * @LastEditTime: 2022-04-06 21:00:46
+ * @LastEditors: LinXuan
+ * @LastEditTime: 2022-04-10 15:13:05
  * @FilePath: /FDO/CodeCraft-2022/src/data.cpp
  */
 #include "data.h"
@@ -139,9 +139,17 @@ Data read_file() {
 }
 
 /*按照规定格式输出一个分配好的distribution*/
-void output_distribution(const Data &data, const Distribution &distribution) {
+void output_distribution(const Data &data, const Distribution &distribution, vector<int> chose_edge_site) {
     /*Distribution类型 [mtime][customer][...] = <edge_site, stream_type>*/
     ofstream fout(OUTPUT + "solution.txt");
+    // 输出10个边缘节点
+    for (size_t i = 0; i < 10; ++i) {
+        fout << data.edge_site[chose_edge_site[i]];
+        if(i == 9)
+            fout << endl;
+        else
+            fout << ",";
+    }
     // 遍历时刻
     for (const auto &distribution_t : distribution) {
         // 遍历customer_site

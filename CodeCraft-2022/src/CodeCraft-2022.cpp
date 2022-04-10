@@ -1,7 +1,7 @@
 /*
  * @Author: xv_rong
  * @Date: 2022-03-31 20:44:44
- * @LastEditors: Please set LastEditors
+ * @LastEditors: LinXuan
  */
 #include "config.h"
 #include "data.h"
@@ -14,13 +14,13 @@ int main() {
     // 实现功能
     SA sa(data);
     Distribution distribution = sa.excute();
-
+    auto chose = sa.get_chose_edge_site();
 #ifdef DEBUG
     check_distribution(data, distribution);
     // cout << cal_cost(data, distribution) << endl;
 #endif
 
-    output_distribution(data, distribution);
+    output_distribution(data, distribution, chose);
 
     std::cout << "over" << std::endl;
     return 0;
