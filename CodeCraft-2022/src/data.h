@@ -3,7 +3,7 @@
  * @Date: 2022-03-31 19:24:16
  * @Description:
  * @LastEditors: LinXuan
- * @LastEditTime: 2022-04-02 22:11:09
+ * @LastEditTime: 2022-04-10 15:12:20
  * @FilePath: /FDO/CodeCraft-2022/src/data.h
  */
 #ifndef _DATA_
@@ -46,8 +46,8 @@ struct Data {
     }
 };
 Data read_file();
-void output_distribution(const Data &data, const Distribution &distribution);
+void output_distribution(const Data &data, const Distribution &distribution, vector<int> chose_edge_site);
 vector<string> get_split_line(ifstream &file, char delim);
-int cal_cost(const Data &data, const Distribution &distribution);
+double cal_cost(const Data &data, const Distribution &distribution);
 bool check_distribution(const Data &data, const Distribution &Distribution);
 #endif
