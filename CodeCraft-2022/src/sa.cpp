@@ -729,58 +729,12 @@ public:
     }
 
     void SA_decent_90(double T, double dT, double end_T) {
-        auto cal_cost = [&](const Distribution &distribution) {
-            double cost = 0.0;
-            // 每个边缘节点的需求序列 [mtime][customer][...] = <edge_site, stream_type>
-            vector<vector<int>> demand_sequence(data.edge_site.size(), vector<int>(data.get_mtime_num(), 0));
-            for (size_t m_time = 0; m_time < data.get_mtime_num(); m_time++) {
-                for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
-                    for (auto item : distribution[m_time][customer_site]) {
-                        int edge_site = item.first;
-                        int stream_type = item.second;
-                        demand_sequence[edge_site][m_time] +=
-                            data.stream_type_to_flow[m_time][customer_site].at(stream_type);
-                    }
-                }
-            }
-
-            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-                size_t index_95;
-                if (find(edge_site_90.begin(), edge_site_90.begin() + 10, edge_site) == edge_site_90.begin() + 10) {
-                    index_95 = get_k95_order() - 1;
-                } else {
-                    index_95 = get_k90_order() - 1;
-                }
-
-                auto &sequence = demand_sequence[edge_site];
-                if (sequence.empty() == true) {
-                    continue;
-                }
-                sort(sequence.begin(), sequence.end());
-                double new_cost = 0.0;
-                if (*sequence.rbegin() == 0) {
-                    new_cost = 0.0;
-                } else if (sequence[index_95] <= data.base_cost) {
-                    new_cost = data.base_cost;
-                } else {
-                    new_cost = (1.0 * (sequence[index_95] - data.base_cost) * (sequence[index_95] - data.base_cost)) /
-                                   data.site_bandwidth[edge_site] +
-                               sequence[index_95];
-                }
-                cost += new_cost;
-            }
-            return cost;
-        };
-
-        best_cost = cal_cost(best_distribution);
-        cout << "best cost: " << best_cost << endl;
 
         double last_cost = now_cost;
         int now_change_cnt = 0;
         vector<int> valid_edge_site;
         valid_edge_site.reserve(data.get_edge_num());
 
-        edge_site_95_has_flow.resize(0);
         for (size_t edge_index = 0; edge_index < 10; ++edge_index) {
             int edge_site = edge_site_90[edge_index];
             if (data.get_mtime_num() > 1) {
@@ -1193,7 +1147,7 @@ public:
         best_order.assign(10, 0);
         ////////////////////////////////////////////////////////////////////////////////
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-            tmp[edge_site] = {flow_95_per_edge_site[edge_site], edge_site};
+            tmp[edge_site] = {flow_94_per_edge_site[edge_site], edge_site};
         }
         sort(tmp.begin(), tmp.end(), greater<pair<int, int>>());
         int index = 0;
@@ -1204,15 +1158,60 @@ public:
                 index = edge_site;
             }
         }
-        // random_shuffle(edge_site_90.begin(), edge_site_90.begin() + index);
+
         for (size_t edge_index = 0; edge_index < 10; ++edge_index) {
             best_order[edge_index] = edge_site_90[edge_index];
         }
-        SA_decent_90(1e10, 0.999999, 1e-20);
+        auto cal_cost = [&](const Distribution &distribution) {
+            double cost = 0.0;
+            // 每个边缘节点的需求序列 [mtime][customer][...] = <edge_site, stream_type>
+            vector<vector<int>> demand_sequence(data.edge_site.size(), vector<int>(data.get_mtime_num(), 0));
+            for (size_t m_time = 0; m_time < data.get_mtime_num(); m_time++) {
+                for (size_t customer_site = 0; customer_site < data.get_customer_num(); ++customer_site) {
+                    for (auto item : distribution[m_time][customer_site]) {
+                        int edge_site = item.first;
+                        int stream_type = item.second;
+                        demand_sequence[edge_site][m_time] +=
+                            data.stream_type_to_flow[m_time][customer_site].at(stream_type);
+                    }
+                }
+            }
 
+            for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
+                size_t index_95;
+                if (find(edge_site_90.begin(), edge_site_90.begin() + 10, edge_site) == edge_site_90.begin() + 10) {
+                    index_95 = get_k95_order() - 1;
+                } else {
+                    index_95 = get_k90_order() - 1;
+                }
+
+                auto &sequence = demand_sequence[edge_site];
+                if (sequence.empty() == true) {
+                    continue;
+                }
+                sort(sequence.begin(), sequence.end());
+                double new_cost = 0.0;
+                if (*sequence.rbegin() == 0) {
+                    new_cost = 0.0;
+                } else if (sequence[index_95] <= data.base_cost) {
+                    new_cost = data.base_cost;
+                } else {
+                    new_cost = (1.0 * (sequence[index_95] - data.base_cost) * (sequence[index_95] - data.base_cost)) /
+                                   data.site_bandwidth[edge_site] +
+                               sequence[index_95];
+                }
+                cost += new_cost;
+            }
+            return cost;
+        };
+
+        best_cost = cal_cost(best_distribution);
+        cout << "best cost: " << best_cost << endl;
+
+        SA_decent_90(1e10, 0.999999, 1e-20);
         ////////////////////////////////////////////////////////////////////////////////
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-            tmp[edge_site] = {flow_95_per_edge_site[edge_site], edge_site};
+            tmp[edge_site] = {flow_94_per_edge_site[edge_site], edge_site};
         }
         sort(tmp.begin(), tmp.end(), greater<pair<int, int>>());
         index = 0;
@@ -1228,7 +1227,7 @@ public:
 
         ////////////////////////////////////////////////////////////////////////////////
         for (size_t edge_site = 0; edge_site < data.get_edge_num(); ++edge_site) {
-            tmp[edge_site] = {flow_95_per_edge_site[edge_site], edge_site};
+            tmp[edge_site] = {flow_94_per_edge_site[edge_site], edge_site};
         }
         sort(tmp.begin(), tmp.end(), greater<pair<int, int>>());
         index = 0;
